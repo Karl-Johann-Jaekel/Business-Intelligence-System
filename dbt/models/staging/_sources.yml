@@ -1,0 +1,40 @@
+version: 2
+
+sources:
+  - name: erp
+    description: Simulated ERP (Olist), loaded by ingestion.connectors.erp_postgres
+    schema: raw
+    tables:
+      - {name: orders, identifier: erp__orders}
+      - {name: order_items, identifier: erp__order_items}
+      - {name: payments, identifier: erp__payments}
+      - {name: customers, identifier: erp__customers}
+      - {name: sellers, identifier: erp__sellers}
+      - {name: products, identifier: erp__products}
+
+  - name: legacy
+    description: Legacy CSV export (Olist), loaded by ingestion.connectors.legacy_csv
+    schema: raw
+    tables:
+      - {name: reviews, identifier: legacy__reviews}
+      - {name: geolocation, identifier: legacy__geolocation}
+      - {name: category_translation, identifier: legacy__category_translation}
+
+  - name: marketing
+    description: Marketing REST API (synthetic), loaded by ingestion.connectors.marketing_api
+    schema: raw
+    tables:
+      - {name: daily, identifier: marketing__daily}
+
+  - name: controlling
+    description: Controlling Excel workbook (synthetic), loaded by ingestion.connectors.controlling_excel
+    schema: raw
+    tables:
+      - {name: budgets, identifier: controlling__budgets}
+
+  - name: ops
+    description: Operational tables owned by the ingestion layer
+    schema: ops
+    tables:
+      - name: sim_clock
+        description: Single-row simulation date; data after this date is invisible.

@@ -1,0 +1,15 @@
+# Run and event storage in the `dagster` database of the BIS Postgres container.
+# `bis` sets the BIS_PG_* variables to local defaults if they are not exported.
+storage:
+  postgres:
+    postgres_db:
+      # SQLAlchemy 2.1 defaults to psycopg 3, which breaks dagster-postgres' parameterised NOTIFY.
+      scheme: postgresql+psycopg2
+      hostname: {env: BIS_PG_HOST}
+      port: {env: BIS_PG_PORT}
+      username: {env: BIS_PG_USER}
+      password: {env: BIS_PG_PASSWORD}
+      db_name: dagster
+
+telemetry:
+  enabled: false

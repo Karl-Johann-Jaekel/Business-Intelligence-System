@@ -1,0 +1,112 @@
+version: 2
+
+models:
+  - name: stg_ops__sim_clock
+    columns:
+      - name: sim_date
+        data_tests: [not_null, unique]
+
+  - name: stg_erp__orders
+    description: Orders with timestamps after the simulation date masked.
+    columns:
+      - name: order_id
+        data_tests: [unique, not_null]
+      - name: customer_id
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_erp__customers')
+                field: customer_id
+      - name: order_status
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [created, approved, invoiced, processing, shipped, delivered, canceled, unavailable]
+      - name: purchased_at
+        data_tests: [not_null]
+
+  - name: stg_erp__order_items
+    data_tests:
+      - unique_combination:
+          arguments:
+            columns: [order_id, order_item_id]
+    columns:
+      - name: order_id
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_erp__orders')
+                field: order_id
+      - name: product_id
+        data_tests: [not_null]
+      - name: price
+        data_tests: [not_null]
+
+  - name: stg_erp__payments
+    data_tests:
+      - unique_combination:
+          arguments:
+            columns: [order_id, payment_sequential]
+    columns:
+      - name: payment_type
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [credit_card, boleto, voucher, debit_card, not_defined]
+
+  - name: stg_erp__customers
+    columns:
+      - name: customer_id
+        data_tests: [unique, not_null]
+      - name: customer_unique_id
+        data_tests: [not_null]
+
+  - name: stg_erp__sellers
+    columns:
+      - name: seller_id
+        data_tests: [unique, not_null]
+
+  - name: stg_erp__products
+    columns:
+      - name: product_id
+        data_tests: [unique, not_null]
+
+  - name: stg_legacy__reviews
+    data_tests:
+      - unique_combination:
+          arguments:
+            columns: [review_id, order_id]
+    columns:
+      - name: review_score
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [1, 2, 3, 4, 5]
+                quote: false
+
+  - name: stg_legacy__category_translation
+    columns:
+      - name: category_name_pt
+        data_tests: [unique, not_null]
+
+  - name: stg_marketing__daily
+    data_tests:
+      - unique_combination:
+          arguments:
+            columns: [marketing_date, channel]
+    columns:
+      - name: channel
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [organic, paid_search, paid_social, email]
+
+  - name: stg_controlling__budgets
+    data_tests:
+      - unique_combination:
+          arguments:
+            columns: [budget_month, category_name_en]
