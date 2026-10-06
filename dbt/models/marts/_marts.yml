@@ -1,0 +1,180 @@
+version: 2
+
+models:
+  - name: dim_date
+    columns:
+      - name: date_day
+        data_tests: [unique, not_null]
+
+  - name: dim_region
+    columns:
+      - name: state_code
+        data_tests: [unique, not_null]
+      - name: entity_id
+        data_tests: [unique, not_null]
+
+  - name: dim_customer
+    columns:
+      - name: customer_unique_id
+        data_tests: [unique, not_null]
+      - name: state_code
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('dim_region')
+                field: state_code
+
+  - name: dim_product
+    columns:
+      - name: product_id
+        data_tests: [unique, not_null]
+      - name: category_name_en
+        data_tests: [not_null]
+
+  - name: dim_seller
+    columns:
+      - name: seller_id
+        data_tests: [unique, not_null]
+      - name: state_code
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('dim_region')
+                field: state_code
+
+  - name: fct_orders
+    columns:
+      - name: order_id
+        data_tests: [unique, not_null]
+      - name: customer_unique_id
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_customer')
+                field: customer_unique_id
+      - name: state_code
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('dim_region')
+                field: state_code
+      - name: purchase_date
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_date')
+                field: date_day
+
+  - name: fct_order_items
+    data_tests:
+      - unique_combination:
+          arguments:
+            columns: [order_id, order_item_id]
+    columns:
+      - name: product_id
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('dim_product')
+                field: product_id
+      - name: seller_id
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('dim_seller')
+                field: seller_id
+
+  - name: fct_payments
+    data_tests:
+      - unique_combination:
+          arguments:
+            columns: [order_id, payment_sequential]
+
+  - name: fct_reviews
+    data_tests:
+      - unique_combination:
+          arguments:
+            columns: [review_id, order_id]
+
+  - name: fct_marketing_daily
+    data_tests:
+      - unique_combination:
+          arguments:
+            columns: [marketing_date, channel]
+
+  - name: budget_vs_actual
+    data_tests:
+      - unique_combination:
+          arguments:
+            columns: [month_start, category_name_en]
+
+  - name: kpi_daily
+    description: One row per day, KPI and dimension value. KPI keys must exist in registry/kpis.
+    data_tests:
+      - unique_combination:
+          arguments:
+            columns: [kpi_date, kpi_key, dimension, dimension_value]
+    columns:
+      - name: kpi_date
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_date')
+                field: date_day
+      - name: kpi_key
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values:
+                  - gmv
+                  - orders_count
+                  - avg_order_value
+                  - freight_ratio
+                  - cancellation_rate
+                  - delivery_time_avg_days
+                  - on_time_rate
+                  - review_score_avg
+                  - new_customers
+                  - returning_customers
+                  - conversion_rate
+                  - roas
+      - name: dimension
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [total, region, category]
+      - name: aggregation
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [sum, ratio]
+
+  - name: kpi_monthly
+    data_tests:
+      - unique_combination:
+          arguments:
+            columns: [month_start, kpi_key, dimension, dimension_value]
+    columns:
+      - name: kpi_key
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values:
+                  - gmv
+                  - orders_count
+                  - avg_order_value
+                  - freight_ratio
+                  - cancellation_rate
+                  - delivery_time_avg_days
+                  - on_time_rate
+                  - review_score_avg
+                  - new_customers
+                  - returning_customers
+                  - conversion_rate
+                  - roas
+                  - budget_deviation

@@ -1,0 +1,36 @@
+name: bis
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${BIS_PG_USER:-bis}
+      POSTGRES_PASSWORD: ${BIS_PG_PASSWORD:-bis_dev}
+      POSTGRES_DB: warehouse
+    ports:
+      - "127.0.0.1:${BIS_PG_PORT:-55432}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./postgres/init.sql:/docker-entrypoint-initdb.d/00-init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d warehouse"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  mock-marketing-api:
+    build: ../ingestion/mock_marketing_api
+    environment:
+      MARKETING_DATA_FILE: /data/synthetic/marketing_daily.csv
+    ports:
+      - "127.0.0.1:${BIS_MARKETING_PORT:-8101}:8000"
+    volumes:
+      - ../data:/data:ro
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  pgdata:

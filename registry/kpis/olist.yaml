@@ -1,0 +1,181 @@
+# KPI registry for the Olist reference domain.
+# Every key must be produced by dbt (kpi_daily / kpi_monthly); `python -m registry.validate` checks this.
+# Ratios are stored as fractions (0.05 = 5 %).
+
+- key: gmv
+  label: Umsatz (GMV)
+  description: Summe der Artikelpreise nicht stornierter Bestellungen, nach Bestelldatum
+  source: marts.kpi_daily
+  grain: day
+  unit: BRL
+  direction: higher_is_better
+  dimensions: [region, category]
+  entity_type: category
+  alert: {method: stl_mad, threshold: 3.5, min_history_days: 56}
+  data_origin: real
+  data_class: public
+  owner: sales
+
+- key: orders_count
+  label: Anzahl Bestellungen
+  description: Nicht stornierte Bestellungen, nach Bestelldatum
+  source: marts.kpi_daily
+  grain: day
+  unit: count
+  direction: higher_is_better
+  dimensions: [region]
+  entity_type: region
+  alert: {method: stl_mad, threshold: 3.5, min_history_days: 56}
+  data_origin: real
+  data_class: public
+  owner: sales
+
+- key: avg_order_value
+  label: Ø Warenkorbwert
+  description: GMV geteilt durch Anzahl nicht stornierter Bestellungen mit Positionen
+  source: marts.kpi_daily
+  grain: day
+  unit: BRL
+  direction: higher_is_better
+  dimensions: [region]
+  entity_type: region
+  alert: {method: stl_mad, threshold: 4.0, min_history_days: 56}
+  data_origin: real
+  data_class: public
+  owner: sales
+
+- key: freight_ratio
+  label: Frachtkostenquote
+  description: Frachtkosten im Verhältnis zum GMV
+  source: marts.kpi_daily
+  grain: day
+  unit: ratio
+  direction: lower_is_better
+  dimensions: [region, category]
+  entity_type: region
+  alert: {method: stl_mad, threshold: 4.0, min_history_days: 56}
+  data_origin: real
+  data_class: public
+  owner: operations
+
+- key: cancellation_rate
+  label: Stornoquote
+  description: Anteil stornierter oder nicht lieferbarer Bestellungen an allen Bestellungen, nach Bestelldatum
+  source: marts.kpi_daily
+  grain: day
+  unit: ratio
+  direction: lower_is_better
+  dimensions: [region]
+  entity_type: region
+  alert: {method: stl_mad, threshold: 4.0, min_history_days: 56}
+  data_origin: real
+  data_class: public
+  owner: operations
+
+- key: delivery_time_avg_days
+  label: Ø Lieferzeit (Tage)
+  description: Mittlere Dauer von Bestellung bis Zustellung, nach Zustelldatum
+  source: marts.kpi_daily
+  grain: day
+  unit: days
+  direction: lower_is_better
+  dimensions: [region]
+  entity_type: region
+  alert: {method: stl_mad, threshold: 3.5, min_history_days: 56}
+  data_origin: real
+  data_class: public
+  owner: operations
+
+- key: on_time_rate
+  label: Pünktlichkeitsquote
+  description: Anteil zugestellter Bestellungen, die bis zum zugesagten Liefertermin ankamen
+  source: marts.kpi_daily
+  grain: day
+  unit: ratio
+  direction: higher_is_better
+  dimensions: [region]
+  entity_type: region
+  alert: {method: stl_mad, threshold: 3.5, min_history_days: 56}
+  data_origin: real
+  data_class: public
+  owner: operations
+
+- key: review_score_avg
+  label: Ø Bewertung
+  description: Mittlere Bewertung (1–5), nach Erstellungsdatum der Bewertung
+  source: marts.kpi_daily
+  grain: day
+  unit: score
+  direction: higher_is_better
+  dimensions: [region]
+  entity_type: region
+  alert: {method: stl_mad, threshold: 3.5, min_history_days: 56}
+  data_origin: real
+  data_class: public
+  owner: customer_service
+
+- key: new_customers
+  label: Neukunden
+  description: Bestellungen von Kunden ohne frühere Bestellung
+  source: marts.kpi_daily
+  grain: day
+  unit: count
+  direction: higher_is_better
+  dimensions: [region]
+  entity_type: region
+  data_origin: real
+  data_class: public
+  owner: marketing
+
+- key: returning_customers
+  label: Wiederkäufer
+  description: Bestellungen von Kunden mit mindestens einer früheren Bestellung
+  source: marts.kpi_daily
+  grain: day
+  unit: count
+  direction: higher_is_better
+  dimensions: [region]
+  entity_type: region
+  data_origin: real
+  data_class: public
+  owner: marketing
+
+- key: conversion_rate
+  label: Conversion Rate
+  description: Nicht stornierte Bestellungen geteilt durch Website-Sessions (Sessions synthetisch)
+  source: marts.kpi_daily
+  grain: day
+  unit: ratio
+  direction: higher_is_better
+  dimensions: []
+  alert: {method: stl_mad, threshold: 3.5, min_history_days: 56}
+  data_origin: partly_synthetic
+  data_class: internal
+  owner: marketing
+
+- key: roas
+  label: ROAS
+  description: GMV geteilt durch Werbeausgaben (Werbeausgaben synthetisch)
+  source: marts.kpi_daily
+  grain: day
+  unit: ratio
+  direction: higher_is_better
+  dimensions: []
+  alert: {method: stl_mad, threshold: 3.5, min_history_days: 56}
+  data_origin: partly_synthetic
+  data_class: internal
+  owner: marketing
+
+- key: budget_deviation
+  label: Budgetabweichung
+  description: (Ist-GMV − Budget) / Budget je Monat; Budget aus dem Controlling-Workbook (synthetisch)
+  source: marts.kpi_monthly
+  grain: month
+  unit: ratio
+  direction: neutral
+  dimensions: [category]
+  entity_type: category
+  alert: {method: threshold, threshold: 0.25}
+  data_origin: partly_synthetic
+  data_class: internal
+  owner: finance

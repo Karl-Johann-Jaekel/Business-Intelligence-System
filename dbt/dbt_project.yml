@@ -1,0 +1,32 @@
+name: bis
+version: "0.1.0"
+config-version: 2
+profile: bis
+
+model-paths: ["models"]
+seed-paths: ["seeds"]
+test-paths: ["tests"]
+macro-paths: ["macros"]
+target-path: target
+clean-targets: ["target", "dbt_packages"]
+
+models:
+  bis:
+    staging:
+      +schema: staging
+      +materialized: view
+    intermediate:
+      +schema: intermediate
+      +materialized: table
+    marts:
+      +schema: marts
+      +materialized: table
+
+seeds:
+  bis:
+    +schema: staging
+    br_states:
+      +column_types:
+        state_code: char(2)
+        state_name: text
+        macro_region: text

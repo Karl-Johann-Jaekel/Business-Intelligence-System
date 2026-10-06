@@ -1,0 +1,21 @@
+select
+    order_id,
+    customer_unique_id,
+    customer_state as state_code,
+    order_status,
+    is_canceled,
+    is_first_order,
+    purchased_at,
+    purchase_date,
+    approved_at,
+    delivered_carrier_at,
+    delivered_customer_at,
+    delivery_date,
+    estimated_delivery_at,
+    delivery_days,
+    is_on_time,
+    items_count,
+    items_value,
+    freight_value,
+    payment_value
+from {{ ref('int_orders__enriched') }}

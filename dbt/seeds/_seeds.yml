@@ -1,0 +1,13 @@
+version: 2
+
+seeds:
+  - name: br_states
+    description: Brazilian federal states with macro region (static reference data).
+    columns:
+      - name: state_code
+        data_tests: [unique, not_null]
+      - name: macro_region
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [Norte, Nordeste, Centro-Oeste, Sudeste, Sul]
