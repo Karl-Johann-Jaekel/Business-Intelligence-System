@@ -1,6 +1,6 @@
 # KPI registry for the Olist reference domain.
 # Every key must be produced by dbt (kpi_daily / kpi_monthly); `python -m registry.validate` checks this.
-# Ratios are stored as fractions (0.05 = 5 %).
+# Ratios are stored as fractions (0.05 = 5 %); multiples as factors (8.2 = 8.2x).
 
 - key: gmv
   label: Umsatz (GMV)
@@ -36,6 +36,20 @@
   source: marts.kpi_daily
   grain: day
   unit: BRL
+  direction: higher_is_better
+  dimensions: [region]
+  entity_type: region
+  alert: {method: stl_mad, threshold: 4.0, min_history_days: 56}
+  data_origin: real
+  data_class: public
+  owner: sales
+
+- key: items_per_order
+  label: Ø Artikel pro Bestellung
+  description: Bestellpositionen geteilt durch nicht stornierte Bestellungen mit Positionen
+  source: marts.kpi_daily
+  grain: day
+  unit: count
   direction: higher_is_better
   dimensions: [region]
   entity_type: region
@@ -158,7 +172,7 @@
   description: GMV geteilt durch Werbeausgaben (Werbeausgaben synthetisch)
   source: marts.kpi_daily
   grain: day
-  unit: ratio
+  unit: multiple
   direction: higher_is_better
   dimensions: []
   alert: {method: stl_mad, threshold: 3.5, min_history_days: 56}
