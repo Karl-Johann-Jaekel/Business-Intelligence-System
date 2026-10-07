@@ -35,7 +35,31 @@ CREATE TABLE IF NOT EXISTS ops.load_log (
 );
 CREATE INDEX IF NOT EXISTS load_log_source_entity_idx
     ON ops.load_log (source, entity, finished_at DESC);
+
+-- One row per pipeline run that advanced the clock; makes retries idempotent.
+CREATE TABLE IF NOT EXISTS ops.clock_advances (
+    run_key      text PRIMARY KEY,
+    from_date    date NOT NULL,
+    to_date      date NOT NULL,
+    advanced_at  timestamptz NOT NULL DEFAULT now()
+);
 """
+
+API_ROLE = "bis_api"
+
+
+def ensure_api_role(conn: psycopg.Connection, password: str) -> None:
+    """Read-only login role for the API. It may only read `marts` (grants are applied by dbt)."""
+    exists = conn.execute("SELECT 1 FROM pg_roles WHERE rolname = %s", (API_ROLE,)).fetchone()
+    role = sql.Identifier(API_ROLE)
+    if not exists:
+        conn.execute(sql.SQL("CREATE ROLE {} LOGIN").format(role))
+    conn.execute(sql.SQL("ALTER ROLE {} WITH LOGIN PASSWORD {}").format(role, sql.Literal(password)))
+    conn.execute(sql.SQL("ALTER ROLE {} SET default_transaction_read_only = on").format(role))
+    conn.execute(sql.SQL("ALTER ROLE {} SET statement_timeout = '10s'").format(role))
+    conn.execute("CREATE SCHEMA IF NOT EXISTS marts")
+    conn.execute(sql.SQL("GRANT USAGE ON SCHEMA marts TO {}").format(role))
+    conn.commit()
 
 
 def connect(dsn: str = WAREHOUSE_DSN) -> psycopg.Connection:

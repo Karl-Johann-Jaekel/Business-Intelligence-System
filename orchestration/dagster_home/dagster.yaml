@@ -11,5 +11,22 @@ storage:
       password: {env: BIS_PG_PASSWORD}
       db_name: dagster
 
+# Failed runs are re-executed from the failed step (job tag dagster/max_retries).
+run_retries:
+  enabled: true
+  max_retries: 0
+  retry_on_asset_or_op_failure: true
+
+# Fail runs that hang while starting or run far too long, so the schedule can continue.
+run_monitoring:
+  enabled: true
+  start_timeout_seconds: 180
+  max_runtime_seconds: 3600
+
+# One simulated day at a time.
+concurrency:
+  runs:
+    max_concurrent_runs: 1
+
 telemetry:
   enabled: false
