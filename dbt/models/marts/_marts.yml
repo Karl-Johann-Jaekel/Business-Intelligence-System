@@ -134,6 +134,7 @@ models:
                   - orders_count
                   - avg_order_value
                   - freight_ratio
+                  - items_per_order
                   - cancellation_rate
                   - delivery_time_avg_days
                   - on_time_rate
@@ -169,6 +170,7 @@ models:
                   - orders_count
                   - avg_order_value
                   - freight_ratio
+                  - items_per_order
                   - cancellation_rate
                   - delivery_time_avg_days
                   - on_time_rate
@@ -178,3 +180,9 @@ models:
                   - conversion_rate
                   - roas
                   - budget_deviation
+
+  - name: pipeline_status
+    description: One row with simulation date and load/build timestamps for the API health endpoint.
+    columns:
+      - name: sim_date
+        data_tests: [not_null, unique]

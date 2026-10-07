@@ -1,0 +1,440 @@
+/* Tokens follow the dataviz reference palette (validated light + dark). */
+:root {
+  color-scheme: light;
+  --page: #f9f9f7;
+  --surface-1: #fcfcfb;
+  --text-primary: #0b0b0b;
+  --text-secondary: #52514e;
+  --text-muted: #898781;
+  --grid: #e1e0d9;
+  --axis: #c3c2b7;
+  --border: rgba(11, 11, 11, 0.1);
+  --wash: rgba(11, 11, 11, 0.04);
+  --series-1: #2a78d6;
+  --series-2: #eb6834;
+  --series-3: #1baf7a;
+  --series-4: #eda100;
+  --series-5: #e87ba4;
+  /* Diverging poles for favourable / unfavourable change, gray midpoint */
+  --div-good: #2a78d6;
+  --div-bad: #e34948;
+  --div-mid: #f0efec;
+  --good-text: #006300;
+  --bad-text: #b42828;
+  --status-good: #0ca30c;
+  --status-warning: #fab219;
+  --status-critical: #d03b3b;
+  --font: system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    color-scheme: dark;
+    --page: #0d0d0d;
+    --surface-1: #1a1a19;
+    --text-primary: #ffffff;
+    --text-secondary: #c3c2b7;
+    --text-muted: #898781;
+    --grid: #2c2c2a;
+    --axis: #383835;
+    --border: rgba(255, 255, 255, 0.1);
+    --wash: rgba(255, 255, 255, 0.05);
+    --series-1: #3987e5;
+    --series-2: #d95926;
+    --series-3: #199e70;
+    --series-4: #c98500;
+    --series-5: #d55181;
+    --div-good: #3987e5;
+    --div-bad: #e66767;
+    --div-mid: #383835;
+    --good-text: #0ca30c;
+    --bad-text: #e66767;
+  }
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --page: #0d0d0d;
+  --surface-1: #1a1a19;
+  --text-primary: #ffffff;
+  --text-secondary: #c3c2b7;
+  --text-muted: #898781;
+  --grid: #2c2c2a;
+  --axis: #383835;
+  --border: rgba(255, 255, 255, 0.1);
+  --wash: rgba(255, 255, 255, 0.05);
+  --series-1: #3987e5;
+  --series-2: #d95926;
+  --series-3: #199e70;
+  --series-4: #c98500;
+  --series-5: #d55181;
+  --div-good: #3987e5;
+  --div-bad: #e66767;
+  --div-mid: #383835;
+  --good-text: #0ca30c;
+  --bad-text: #e66767;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--page);
+  color: var(--text-primary);
+  font-family: var(--font);
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+button,
+select,
+input {
+  font: inherit;
+  color: inherit;
+}
+
+.app {
+  max-width: 1280px;
+  min-width: 0;
+  margin: 0 auto;
+  padding: 16px;
+}
+
+/* Header */
+.header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+.header h1 {
+  font-size: 20px;
+  font-weight: 600;
+  margin: 0;
+}
+.health {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+  color: var(--text-secondary);
+}
+.health .dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+/* Filter row: one row, above everything it scopes */
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  align-items: center;
+  padding: 8px 0 16px;
+  border-bottom: 1px solid var(--grid);
+  margin-bottom: 16px;
+}
+.segmented {
+  display: inline-flex;
+  flex-wrap: wrap;
+  max-width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--surface-1);
+}
+.segmented button {
+  border: 0;
+  background: transparent;
+  padding: 6px 10px;
+  cursor: pointer;
+  color: var(--text-secondary);
+}
+.segmented button:hover {
+  background: var(--wash);
+}
+.segmented button[aria-pressed='true'] {
+  color: var(--text-primary);
+  font-weight: 600;
+  background: var(--wash);
+}
+.field {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  color: var(--text-secondary);
+}
+.field select,
+.field input {
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 5px 8px;
+}
+
+/* KPI cards */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(220px, 100%), 1fr));
+  gap: 12px;
+  margin-bottom: 24px;
+}
+.card {
+  text-align: left;
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px 14px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-height: 136px;
+  transition: opacity 0.15s;
+}
+.card:hover {
+  border-color: var(--axis);
+}
+.card[aria-pressed='true'] {
+  outline: 2px solid var(--series-1);
+  outline-offset: -1px;
+}
+.card .label {
+  color: var(--text-secondary);
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+.card .value {
+  font-size: 24px;
+  font-weight: 600;
+}
+.delta {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+.delta .good {
+  color: var(--good-text);
+}
+.delta .bad {
+  color: var(--bad-text);
+}
+.badge {
+  font-size: 11px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0 6px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  align-self: flex-start;
+}
+.loading {
+  opacity: 0.5;
+}
+.error {
+  color: var(--bad-text);
+}
+
+/* Detail panels */
+.panel {
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+.panel h2 {
+  font-size: 16px;
+  margin: 0 0 4px;
+}
+.panel h3 {
+  font-size: 14px;
+  margin: 0;
+}
+.panel-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+.muted {
+  color: var(--text-muted);
+}
+.secondary {
+  color: var(--text-secondary);
+}
+.meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.link-button {
+  border: 0;
+  background: none;
+  color: var(--text-secondary);
+  text-decoration: underline;
+  cursor: pointer;
+  padding: 0;
+}
+
+/* Charts */
+.chart {
+  position: relative;
+}
+.chart svg {
+  display: block;
+  width: 100%;
+  overflow: visible;
+}
+.chart svg:focus-visible {
+  outline: 2px solid var(--series-1);
+  outline-offset: 2px;
+}
+.tick {
+  fill: var(--text-muted);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+.tooltip {
+  position: absolute;
+  pointer-events: none;
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 10px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+  font-size: 12px;
+  min-width: 140px;
+  z-index: 2;
+}
+.tooltip .when {
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+.tooltip .row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.tooltip .row strong {
+  margin-right: auto;
+}
+.key {
+  display: inline-block;
+  width: 12px;
+  height: 2px;
+  border-radius: 1px;
+}
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin: 0 0 8px;
+  padding: 0;
+  list-style: none;
+  color: var(--text-secondary);
+}
+.legend li {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+}
+
+/* Tables */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+th,
+td {
+  text-align: right;
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--grid);
+}
+th:first-child,
+td:first-child {
+  text-align: left;
+}
+th {
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+.table-scroll {
+  max-height: 320px;
+  overflow: auto;
+}
+
+/* Deviation view */
+.dev-row {
+  display: grid;
+  grid-template-columns: minmax(90px, 160px) 1fr minmax(150px, 220px);
+  gap: 8px;
+  align-items: center;
+  padding: 3px 0;
+}
+.dev-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.dev-values {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+@media (max-width: 640px) {
+  .filters .field,
+  .filters .segmented {
+    width: 100%;
+  }
+  .filters .field input,
+  .filters .field select {
+    flex: 1;
+    min-width: 0;
+  }
+  .dev-row {
+    grid-template-columns: 1fr;
+    gap: 2px;
+  }
+  .dev-values {
+    text-align: left;
+  }
+  .card .value {
+    font-size: 20px;
+  }
+}
+.dev-track {
+  position: relative;
+  height: 12px;
+}
+.dev-axis {
+  position: absolute;
+  left: 50%;
+  top: -2px;
+  bottom: -2px;
+  width: 1px;
+  background: var(--axis);
+}
+.dev-bar {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+}
+.delta-text.good {
+  color: var(--good-text);
+}
+.delta-text.bad {
+  color: var(--bad-text);
+}

@@ -45,9 +45,14 @@ def _run(cmd: list[str]) -> None:
     subprocess.run(cmd, check=True, env=_env(), cwd=REPO_ROOT)
 
 
+def _dbt_parse() -> None:
+    _run([_bin("dbt"), "parse", "--project-dir", str(DBT_DIR), "--profiles-dir", str(DBT_DIR)])
+
+
 def cmd_setup(args: argparse.Namespace) -> None:
     from ingestion import clock
-    from ingestion.db import connect, ensure_ops_schema
+    from ingestion.config import API_DB_PASSWORD
+    from ingestion.db import connect, ensure_api_role, ensure_ops_schema
     from ingestion.setup import download, seed_erp, synthetic
 
     print("Olist dataset ...", flush=True)
@@ -60,11 +65,12 @@ def cmd_setup(args: argparse.Namespace) -> None:
         print(synthetic.generate_all())
     with connect() as conn:
         ensure_ops_schema(conn)
+        ensure_api_role(conn, API_DB_PASSWORD)
         current = clock.get_sim_date(conn)
         if current is None or args.start_date:
             current = clock.set_sim_date(conn, args.start_date or DEFAULT_START_DATE)
     print(f"Simulation date: {current}")
-    _run([_bin("dbt"), "parse", "--project-dir", str(DBT_DIR), "--profiles-dir", str(DBT_DIR)])
+    _dbt_parse()
 
 
 def cmd_up(args: argparse.Namespace) -> None:
@@ -82,6 +88,9 @@ def cmd_down(args: argparse.Namespace) -> None:
 
 
 def cmd_materialize(args: argparse.Namespace) -> None:
+    # Outside `dagster dev` the manifest is not refreshed automatically; a stale one breaks
+    # dagster-dbt as soon as a model or test name changes.
+    _dbt_parse()
     _run([_bin("dagster"), "job", "execute", "-m", "orchestration.definitions", "-j", "daily_pipeline"])
 
 

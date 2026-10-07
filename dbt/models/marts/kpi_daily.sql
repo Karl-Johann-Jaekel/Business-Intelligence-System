@@ -55,6 +55,7 @@ items_agg as (
         end as dimension_value,
         sum(price) as gmv,
         sum(freight_value) as freight,
+        count(*) as items,
         count(distinct order_id) as orders_with_items
     from {{ ref('fct_order_items') }}
     where not is_canceled
@@ -66,6 +67,7 @@ items_frame as (
         s.kpi_date, 'total' as dimension, 'all' as dimension_value,
         coalesce(a.gmv, 0) as gmv,
         coalesce(a.freight, 0) as freight,
+        coalesce(a.items, 0) as items,
         coalesce(a.orders_with_items, 0) as orders_with_items
     from spine s
     left join items_agg a on a.kpi_date = s.kpi_date and a.dimension = 'total'
@@ -125,9 +127,10 @@ kpi_inputs as (
     cross join lateral (values
         ('gmv', 'sum', i.gmv, null::numeric),
         ('avg_order_value', 'ratio', i.gmv, i.orders_with_items::numeric),
-        ('freight_ratio', 'ratio', i.freight, i.gmv)
+        ('freight_ratio', 'ratio', i.freight, i.gmv),
+        ('items_per_order', 'ratio', i.items::numeric, i.orders_with_items::numeric)
     ) as k (kpi_key, aggregation, numerator, denominator)
-    where not (k.kpi_key = 'avg_order_value' and i.dimension = 'category')
+    where not (k.kpi_key in ('avg_order_value', 'items_per_order') and i.dimension = 'category')
 
     union all
 

@@ -21,6 +21,9 @@ models:
     marts:
       +schema: marts
       +materialized: table
+      # Read-only API role (created by `bis setup`) may read marts only.
+      +grants:
+        select: ["bis_api"]
 
 seeds:
   bis:

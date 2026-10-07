@@ -26,5 +26,7 @@ def pg_dsn(database: str) -> str:
     return f"postgresql://{user}:{password}@{host}:{port}/{database}"
 
 
+API_DB_PASSWORD = os.getenv("BIS_API_DB_PASSWORD", "bis_api_dev")
+
 WAREHOUSE_DSN = pg_dsn("warehouse")
 ERP_DSN = pg_dsn("erp")

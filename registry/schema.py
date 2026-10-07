@@ -37,7 +37,7 @@ class Kpi(BaseModel):
     description: str
     source: Literal["marts.kpi_daily", "marts.kpi_monthly"]
     grain: Literal["day", "month"]
-    unit: Literal["BRL", "count", "ratio", "days", "score"]
+    unit: Literal["BRL", "count", "ratio", "multiple", "days", "score"]
     direction: Literal["higher_is_better", "lower_is_better", "neutral"]
     dimensions: list[Dimension] = []
     entity_type: Dimension | None = None

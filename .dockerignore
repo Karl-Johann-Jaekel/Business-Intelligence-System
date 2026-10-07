@@ -1,0 +1,12 @@
+.venv
+.git
+data
+dbt/target
+dbt/logs
+orchestration/dagster_home
+frontend/node_modules
+frontend/dist
+**/__pycache__
+**/.pytest_cache
+.env
+infra/.env

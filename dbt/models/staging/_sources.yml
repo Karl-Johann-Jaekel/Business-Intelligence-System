@@ -38,3 +38,5 @@ sources:
     tables:
       - name: sim_clock
         description: Single-row simulation date; data after this date is invisible.
+      - name: load_log
+        description: One row per connector entity load (success or failure).

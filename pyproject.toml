@@ -24,6 +24,8 @@ dependencies = [
     "PyYAML==6.0.3",
     "httpx==0.28.1",
     "kagglehub==1.0.2",
+    "fastapi==0.142.2",
+    "uvicorn[standard]==0.54.0",
 ]
 
 [project.optional-dependencies]
@@ -33,7 +35,7 @@ dev = ["pytest==9.1.1", "ruff==0.14.1"]
 bis = "orchestration.cli:main"
 
 [tool.setuptools.packages.find]
-include = ["ingestion*", "registry*", "orchestration*"]
+include = ["ingestion*", "registry*", "orchestration*", "api*"]
 
 [tool.dagster]
 module_name = "orchestration.definitions"
