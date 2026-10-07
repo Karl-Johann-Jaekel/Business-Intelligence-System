@@ -3,6 +3,7 @@ name: bis
 services:
   postgres:
     image: postgres:16-alpine
+    restart: unless-stopped
     environment:
       POSTGRES_USER: ${BIS_PG_USER:-bis}
       POSTGRES_PASSWORD: ${BIS_PG_PASSWORD:-bis_dev}
@@ -20,6 +21,7 @@ services:
 
   mock-marketing-api:
     build: ../ingestion/mock_marketing_api
+    restart: unless-stopped
     environment:
       MARKETING_DATA_FILE: /data/synthetic/marketing_daily.csv
     ports:
@@ -28,6 +30,26 @@ services:
       - ../data:/data:ro
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    build:
+      context: ..
+      dockerfile: api/Dockerfile
+    restart: unless-stopped
+    environment:
+      BIS_PG_HOST: postgres
+      BIS_PG_PORT: "5432"
+      BIS_API_DB_PASSWORD: ${BIS_API_DB_PASSWORD:-bis_api_dev}
+    ports:
+      - "127.0.0.1:${BIS_API_PORT:-8102}:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v1/kpis')"]
       interval: 5s
       timeout: 3s
       retries: 10
