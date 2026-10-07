@@ -10,7 +10,8 @@ CSV data/olist (Legacy)    ──┼─> Connector.extract() ──> raw ──>
 Mock-API :8101 (Marketing) ──┤   + ops.load_log            (dbt)                               │
 Excel data/controlling     ──┘                                                                  └─> kpi_daily / kpi_monthly
                                                                                                     ↑ KPI-Registry (YAML)
-Dagster: ein Multi-Asset je Quelle → dbt-Assets → Asset Check "kpi_registry_coverage"
+Dagster: Uhr-Asset → ein Multi-Asset je Quelle → dbt-Assets → Asset Checks
+marts ──(Rolle bis_api, read-only)──> FastAPI :8102 ──> React-Dashboard (Vite :5173)
 ```
 
 ## Komponenten
@@ -54,3 +55,42 @@ Schema. Der Connector braucht so eine echte zweite Verbindung, wie bei einem fre
 `ops.sim_clock` enthält ein Datum. Connectoren liefern nur Daten bis zu diesem Tag;
 `stg_erp__orders` maskiert zusätzlich Zeitstempel, die danach liegen. `bis tick` schiebt die
 Uhr um einen Tag und startet die Pipeline.
+
+## Orchestrierung (Woche 2)
+
+- **Schedule `simulated_day`:** Jeder Tick startet `daily_pipeline` mit `advance_days=1`. Das
+  Asset `ops/sim_clock` rückt die Uhr vor; `ops.clock_advances` speichert das pro Root-Run-ID,
+  sodass Wiederholungen und Re-Executions die Uhr nicht doppelt vorrücken. Manuelle Läufe
+  (`bis materialize`) lassen die Uhr stehen.
+- **Überlappung:** Der Schedule überspringt den Tick, solange ein Run aktiv ist
+  (`QUEUED`/`STARTING`/`STARTED`); zusätzlich `max_concurrent_runs: 1`.
+- **Wiederanlauf:** Ingestion-Steps haben eine Retry-Policy (2 Versuche, exponentiell ab 10 s).
+  Scheitert der Run trotzdem, startet Dagster ihn bis zu zweimal ab dem fehlgeschlagenen Step
+  neu (`dagster/max_retries`, `FROM_FAILURE`). Run-Monitoring beendet hängende Starts nach 3 min.
+- **Asset Checks:** `rows_present` (Raw-Tabelle nicht leer) und `new_rows_loaded` (Warnung bei
+  leerem Inkrement) je Ingestion-Asset; `kpi_daily_current` (letzter KPI-Tag = Simulationsdatum)
+  und `kpi_registry_coverage` auf `marts/kpi_daily`; dazu alle dbt-Tests.
+
+## API
+
+FastAPI in `api/`, als Container `api` in docker-compose. Verbindet sich als Rolle `bis_api`:
+nur `SELECT` auf `marts` (dbt `grants`), `default_transaction_read_only`, Statement-Timeout 10 s.
+Der Status für `/health` kommt aus dem Mart `pipeline_status`, damit die Rolle `ops` nicht sehen muss.
+
+| Endpoint | Zweck |
+|---|---|
+| `GET /api/v1/kpis`, `/kpis/{key}` | Registry (Semantic Layer) |
+| `GET /api/v1/kpis/{key}/series` | Zeitreihe; `from`, `to`, `grain`, `dim`, `value` (mehrfach), `top` |
+| `GET /api/v1/kpis/{key}/breakdown` | Wert je Dimensionsausprägung vs. gleich lange Vorperiode |
+| `GET /api/v1/health` | `ok` / `stale` / `down`, Simulationsdatum, letzte Ladezeiten |
+
+Quoten werden über Zähler/Nenner neu aggregiert, nie gemittelt. `breakdown` ist eine Ergänzung
+zum Plan; sie speist KPI-Cards und Abweichungsansicht.
+
+## Dashboard
+
+React + Vite + TypeScript in `frontend/`, ohne Chart-Library (eigene SVG-Komponenten nach
+Dataviz-Vorgaben: validierte Palette hell/dunkel, Crosshair-Tooltip, Tabellenansicht).
+Alles wird aus Registry-Metadaten gerendert (Label, Einheit, Richtung, Dimensionen, Granularität,
+Datenherkunft); es gibt keinen KPI-spezifischen Code. Filter (Zeitraum, Dimension, KPI) stehen
+in der URL. Quotenänderungen werden in Prozentpunkten angezeigt.

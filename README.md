@@ -13,7 +13,7 @@ Company Brain contract: [docs/company-brain-interface.md](docs/company-brain-int
 | Phase | Scope | State |
 |---|---|---|
 | Week 1 – Foundation | Postgres, 4 connectors, dbt star schema + KPI marts, Dagster, KPI registry, CI | done |
-| Week 2 – Pipeline & dashboard | Schedule, asset checks, FastAPI, React | open |
+| Week 2 – Pipeline & dashboard | Daily schedule with retries, asset checks, read-only FastAPI, React dashboard | done |
 | Week 3 – Insights & operations | Anomaly detection, alerts, AI analyst, Keycloak, VPS | open |
 
 ## Quick start
@@ -26,9 +26,20 @@ python -m venv .venv
 .venv/Scripts/bis up                      # containers + data bootstrap + Dagster UI on :3000
 ```
 
-`bis up` starts Postgres (`127.0.0.1:55432`) and the mock marketing API (`127.0.0.1:8101`),
+`bis up` starts Postgres (`127.0.0.1:55432`), the mock marketing API (`127.0.0.1:8101`) and the
+read-only BIS API (`127.0.0.1:8102`),
 downloads Olist, seeds the ERP database, generates synthetic data, sets the simulation clock
 to 2018-01-01 and launches `dagster dev`. In the UI, materialize all assets once to backfill.
+
+Dashboard (Vite dev server, proxies `/api` to the API container):
+
+```bash
+cd frontend && npm install && npm run dev   # http://127.0.0.1:5173
+```
+
+Unattended replay: the Dagster schedule `simulated_day` advances the clock by one day per tick.
+It is off by default; enable it with `BIS_SCHEDULE_ENABLED=true` (and e.g.
+`BIS_SCHEDULE_CRON="*/3 * * * *"` to fast-forward).
 
 Without the UI:
 
@@ -54,7 +65,9 @@ Synthetic data is generated with a fixed seed and labelled per KPI in the regist
 ## Development
 
 ```bash
-pytest -q                          # unit tests
+pytest -q                          # unit + API tests (API integration tests need the warehouse)
+docker compose -f infra/docker-compose.yml exec api pytest -q tests/api   # API tests in the container
+cd frontend && npm test && npm run lint && npm run build
 ruff check . && ruff format .      # lint / format
 python -m registry.validate        # registry schema + consistency with dbt
 cd dbt && dbt build --profiles-dir .   # requires the running warehouse

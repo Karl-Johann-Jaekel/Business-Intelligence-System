@@ -1,6 +1,6 @@
 # PLAN.md – Business-Intelligence-System
 
-Stand: 2026-10-06 · Status: Woche 1 umgesetzt (Branch `feat/week1-foundation`), Woche 2 offen
+Stand: 2026-10-06 · Status: Woche 1 und 2 umgesetzt, Woche 3 offen
 
 ## 1. Zweck und Einordnung
 
