@@ -35,6 +35,9 @@ jobs:
         run: pip install -e .
       - name: dbt parse (compiles project, checks refs and tests)
         working-directory: dbt
+        # parse never connects; the profile only needs the variable to exist
+        env:
+          BIS_PG_PASSWORD: unused-in-ci
         run: dbt parse --profiles-dir .
 
   frontend:
@@ -54,11 +57,18 @@ jobs:
       - run: npm test
       - run: npm run build
 
-  api-image:
+  images:
+    # Build every deployable image (no push; publishing is decided with the VPS deployment).
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Build API image and run its unit tests
+      - name: API image + its unit tests
         run: |
           docker build -f api/Dockerfile -t bis-api .
           docker run --rm bis-api pytest -q tests/api
+      - name: Frontend image
+        run: docker build -t bis-frontend frontend
+      - name: Mock marketing API image
+        run: docker build -t bis-mock-marketing-api ingestion/mock_marketing_api
+      - name: Contracts are valid JSON
+        run: for f in contracts/*.json contracts/examples/*.json; do python3 -m json.tool "$f" > /dev/null || exit 1; done

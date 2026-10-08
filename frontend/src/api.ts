@@ -1,5 +1,7 @@
 // Typed client for the BIS API v1. Shapes mirror api/main.py response models.
 
+import { accessToken, authEnabled, login } from './auth'
+
 export type Grain = 'day' | 'month'
 export type Unit = 'BRL' | 'count' | 'ratio' | 'multiple' | 'days' | 'score'
 export type Direction = 'higher_is_better' | 'lower_is_better' | 'neutral'
@@ -84,7 +86,12 @@ export function buildUrl(path: string, params: Params = {}): string {
 }
 
 export async function getUrl<T>(url: string, signal?: AbortSignal): Promise<T> {
-  const response = await fetch(url, { signal })
+  const token = accessToken()
+  const response = await fetch(url, { signal, headers: token ? { Authorization: `Bearer ${token}` } : {} })
+  if (response.status === 401 && authEnabled) {
+    // Session expired or revoked: log in again and come back to the same view.
+    void login()
+  }
   const body = await response.json().catch(() => ({}))
   if (!response.ok) {
     const detail = typeof body.detail === 'string' ? body.detail : response.statusText
