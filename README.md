@@ -15,7 +15,9 @@ Company Brain contract: [docs/company-brain-interface.md](docs/company-brain-int
 | Week 1 – Foundation | Postgres, 4 connectors, dbt star schema + KPI marts, Dagster, KPI registry, CI | done |
 | Week 2 – Pipeline & dashboard | Daily schedule with retries, asset checks, read-only FastAPI, React dashboard | done |
 | Week 3 – Insights | Anomaly detection (calibrated), outbox + dispatcher, email alerts, AI analyst with number guardrail | done |
-| Week 3 – Operations | Keycloak login, VPS deployment, image builds | open |
+| Week 3 – Operations | Keycloak login (local), CI image builds, no secrets in the repo | done |
+| Week 3 – VPS deployment | Reverse-proxy route, Keycloak realm, subdomain | open (needs VPS details) |
+| K1–K4 – Knowledge layer | Plan v2; starts after milestone M1 | open |
 
 ## Quick start
 
@@ -56,11 +58,26 @@ bis clock show
 - Anomalies per registry rule (`stl_mad`, `threshold`); evaluation with injected anomalies:
   86 % hit rate, 1.6 false alarms per KPI and simulated month
   ([docs/anomaly-evaluation.md](docs/anomaly-evaluation.md)).
-- Every finding is an `insight.v1` event in the outbox `ops.insights`, delivered by the dispatcher
+- Every finding is an `insight.v1` event in the outbox `ops.events`, delivered by the dispatcher
   to the consumers in `events/consumers.yaml` (email; webhooks with HMAC signature).
 - Local alert emails go to Mailpit: http://127.0.0.1:8025
 - Daily AI briefing via Anthropic (`ANTHROPIC_API_KEY`); every number must occur in the computed
   input, otherwise the draft is discarded and regenerated. Without credentials it is skipped.
+
+## Login and secrets
+
+- The dashboard (`http://127.0.0.1:8103`, or Vite on `:5173`) requires a login via Keycloak
+  (`http://127.0.0.1:8180`, realm `bis`). The API checks the token and the scope `read:kpi`
+  per endpoint; `/api/v1/health` is open.
+- No passwords live in the repository. `bis up` / `bis setup` create the git-ignored
+  `infra/.env` from [infra/.env.example](infra/.env.example) with random values, including the
+  demo user `demo` (password: `BIS_DEMO_PASSWORD` in `infra/.env`).
+- LLM calls are routed by data class: the external provider only receives `public` data.
+
+## Contracts
+
+Event and ID formats for other systems: [contracts/](contracts/README.md) (JSON Schema,
+examples, versioning rules).
 
 ## Sources
 

@@ -13,7 +13,7 @@ def _reachable() -> bool:
         with psycopg.connect(api_dsn()) as conn:
             conn.execute("SELECT 1 FROM marts.pipeline_status")
         return True
-    except psycopg.Error:
+    except (psycopg.Error, RuntimeError):  # RuntimeError: no BIS_API_DB_PASSWORD configured
         return False
 
 
@@ -33,9 +33,9 @@ def test_api_role_is_read_only_and_limited_to_marts():
         with pytest.raises(psycopg.errors.InsufficientPrivilege):
             conn.execute("SELECT * FROM raw.erp__orders LIMIT 1")
     with psycopg.connect(api_dsn(), autocommit=True) as conn:
-        conn.execute("SELECT count(*) FROM ops.insights")  # the outbox is readable
+        conn.execute("SELECT count(*) FROM ops.events")  # the outbox is readable
         with pytest.raises(psycopg.errors.InsufficientPrivilege):
-            conn.execute("SELECT * FROM ops.insight_deliveries LIMIT 1")
+            conn.execute("SELECT * FROM ops.event_deliveries LIMIT 1")
     with psycopg.connect(api_dsn(), autocommit=True) as conn:
         with pytest.raises(psycopg.errors.ReadOnlySqlTransaction):
             conn.execute("CREATE TABLE marts.should_fail (x int)")

@@ -28,10 +28,11 @@ dependencies = [
     "uvicorn[standard]==0.54.0",
     "statsmodels==0.15.0",
     "anthropic==1.11.0",
+    "pyjwt[crypto]==2.15.1",
 ]
 
 [project.optional-dependencies]
-dev = ["pytest==9.1.1", "ruff==0.14.1"]
+dev = ["pytest==9.1.1", "ruff==0.14.1", "jsonschema==4.26.0"]  # jsonschema: contract tests
 
 [project.scripts]
 bis = "orchestration.cli:main"

@@ -7,7 +7,7 @@ import pandas as pd
 import psycopg
 from psycopg import sql
 
-from ingestion.config import WAREHOUSE_DSN
+from ingestion.config import warehouse_dsn
 
 OPS_DDL = """
 CREATE SCHEMA IF NOT EXISTS raw;
@@ -44,31 +44,60 @@ CREATE TABLE IF NOT EXISTS ops.clock_advances (
     advanced_at  timestamptz NOT NULL DEFAULT now()
 );
 
--- Outbox for insight.v1 events (anomalies, briefings). dedup_key makes detection idempotent:
--- re-running the same day never creates a second insight for the same finding.
-CREATE TABLE IF NOT EXISTS ops.insights (
-    insight_id    uuid PRIMARY KEY,
+-- pgvector for the knowledge layer (K1); requires the pgvector image.
+CREATE EXTENSION IF NOT EXISTS vector;
+
+-- Migration 2026-10-08 (plan v2): the outbox carries several event types (insight.v1,
+-- decision.v1), so ops.insights becomes ops.events. Idempotent.
+DO $migrate$
+BEGIN
+    IF to_regclass('ops.insights') IS NOT NULL AND to_regclass('ops.events') IS NULL THEN
+        ALTER TABLE ops.insights RENAME TO events;
+        ALTER TABLE ops.events RENAME COLUMN insight_id TO event_id;
+        ALTER INDEX IF EXISTS ops.insights_period_idx RENAME TO events_period_idx;
+        ALTER TABLE ops.insight_deliveries RENAME TO event_deliveries;
+        ALTER TABLE ops.event_deliveries RENAME COLUMN insight_id TO event_id;
+    END IF;
+END
+$migrate$;
+
+-- Outbox for all events. dedup_key makes producers idempotent: re-running the same day never
+-- creates a second event for the same finding. Insight-specific columns are NULL for other types.
+CREATE TABLE IF NOT EXISTS ops.events (
+    event_id      uuid PRIMARY KEY,
+    event_type    text NOT NULL DEFAULT 'insight' CHECK (event_type IN ('insight', 'decision')),
     dedup_key     text NOT NULL UNIQUE,
-    type          text NOT NULL CHECK (type IN ('anomaly', 'briefing', 'forecast_deviation', 'data_quality')),
+    type          text CHECK (type IN ('anomaly', 'briefing', 'forecast_deviation', 'data_quality')),
     kpi           text,
-    period_start  date NOT NULL,
-    period_end    date NOT NULL,
-    severity      text NOT NULL CHECK (severity IN ('info', 'warning', 'critical')),
+    period_start  date,
+    period_end    date,
+    severity      text CHECK (severity IN ('info', 'warning', 'critical')),
+    data_class    text NOT NULL DEFAULT 'public' CHECK (data_class IN ('public', 'internal', 'confidential')),
     payload       jsonb NOT NULL,
     created_at    timestamptz NOT NULL DEFAULT now()
 );
-CREATE INDEX IF NOT EXISTS insights_period_idx ON ops.insights (period_end DESC, type);
+ALTER TABLE ops.events ADD COLUMN IF NOT EXISTS event_type text NOT NULL DEFAULT 'insight'
+    CHECK (event_type IN ('insight', 'decision'));
+ALTER TABLE ops.events ADD COLUMN IF NOT EXISTS data_class text NOT NULL DEFAULT 'public'
+    CHECK (data_class IN ('public', 'internal', 'confidential'));
+ALTER TABLE ops.events ALTER COLUMN type DROP NOT NULL;
+ALTER TABLE ops.events ALTER COLUMN period_start DROP NOT NULL;
+ALTER TABLE ops.events ALTER COLUMN period_end DROP NOT NULL;
+ALTER TABLE ops.events ALTER COLUMN severity DROP NOT NULL;
+UPDATE ops.events SET data_class = payload->>'data_class'
+    WHERE payload ? 'data_class' AND data_class IS DISTINCT FROM payload->>'data_class';
+CREATE INDEX IF NOT EXISTS events_period_idx ON ops.events (period_end DESC, type);
 
--- Delivery state per insight and consumer (email, webhooks). Retried with backoff.
-CREATE TABLE IF NOT EXISTS ops.insight_deliveries (
-    insight_id       uuid NOT NULL REFERENCES ops.insights ON DELETE CASCADE,
+-- Delivery state per event and consumer (email, webhooks). Retried with backoff.
+CREATE TABLE IF NOT EXISTS ops.event_deliveries (
+    event_id         uuid NOT NULL REFERENCES ops.events ON DELETE CASCADE,
     consumer         text NOT NULL,
     status           text NOT NULL CHECK (status IN ('pending', 'delivered', 'failed', 'skipped')),
     attempts         integer NOT NULL DEFAULT 0,
     next_attempt_at  timestamptz NOT NULL DEFAULT now(),
     last_error       text,
     delivered_at     timestamptz,
-    PRIMARY KEY (insight_id, consumer)
+    PRIMARY KEY (event_id, consumer)
 );
 """
 
@@ -76,7 +105,7 @@ API_ROLE = "bis_api"
 
 
 def ensure_api_role(conn: psycopg.Connection, password: str) -> None:
-    """Read-only login role for the API: `marts` (grants applied by dbt) and `ops.insights`.
+    """Read-only login role for the API: `marts` (grants applied by dbt) and `ops.events`.
     Requires ensure_ops_schema() first."""
     exists = conn.execute("SELECT 1 FROM pg_roles WHERE rolname = %s", (API_ROLE,)).fetchone()
     role = sql.Identifier(API_ROLE)
@@ -87,14 +116,14 @@ def ensure_api_role(conn: psycopg.Connection, password: str) -> None:
     conn.execute(sql.SQL("ALTER ROLE {} SET statement_timeout = '10s'").format(role))
     conn.execute("CREATE SCHEMA IF NOT EXISTS marts")
     conn.execute(sql.SQL("GRANT USAGE ON SCHEMA marts TO {}").format(role))
-    # Besides marts the API may read the insight outbox, nothing else in ops.
+    # Besides marts the API may read the event outbox, nothing else in ops.
     conn.execute(sql.SQL("GRANT USAGE ON SCHEMA ops TO {}").format(role))
-    conn.execute(sql.SQL("GRANT SELECT ON ops.insights TO {}").format(role))
+    conn.execute(sql.SQL("GRANT SELECT ON ops.events TO {}").format(role))
     conn.commit()
 
 
-def connect(dsn: str = WAREHOUSE_DSN) -> psycopg.Connection:
-    return psycopg.connect(dsn)
+def connect(dsn: str | None = None) -> psycopg.Connection:
+    return psycopg.connect(dsn or warehouse_dsn())
 
 
 def ensure_ops_schema(conn: psycopg.Connection) -> None:

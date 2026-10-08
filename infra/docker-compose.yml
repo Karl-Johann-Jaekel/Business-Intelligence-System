@@ -2,16 +2,18 @@ name: bis
 
 services:
   postgres:
-    image: postgres:16-alpine
+    # Postgres 16 with pgvector for the knowledge layer (plan v2). Debian-based: its collation
+    # differs from the former Alpine image, hence the new volume (migrate via dump/restore).
+    image: pgvector/pgvector:0.8.1-pg16
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${BIS_PG_USER:-bis}
-      POSTGRES_PASSWORD: ${BIS_PG_PASSWORD:-bis_dev}
+      POSTGRES_PASSWORD: ${BIS_PG_PASSWORD:?Set BIS_PG_PASSWORD in infra/.env (bis setup creates it)}
       POSTGRES_DB: warehouse
     ports:
       - "127.0.0.1:${BIS_PG_PORT:-55432}:5432"
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      - pgdata_pg16vector:/var/lib/postgresql/data
       - ./postgres/init.sql:/docker-entrypoint-initdb.d/00-init.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d warehouse"]
@@ -42,17 +44,59 @@ services:
     environment:
       BIS_PG_HOST: postgres
       BIS_PG_PORT: "5432"
-      BIS_API_DB_PASSWORD: ${BIS_API_DB_PASSWORD:-bis_api_dev}
+      BIS_API_DB_PASSWORD: ${BIS_API_DB_PASSWORD:?Set BIS_API_DB_PASSWORD in infra/.env}
+      BIS_AUTH_ENABLED: ${BIS_AUTH_ENABLED:-true}
+      BIS_OIDC_ISSUER: http://127.0.0.1:${BIS_KEYCLOAK_PORT:-8180}/realms/bis
+      BIS_OIDC_JWKS_URL: http://keycloak:8080/realms/bis/protocol/openid-connect/certs
+      BIS_OIDC_AUDIENCE: bis-api
     ports:
       - "127.0.0.1:${BIS_API_PORT:-8102}:8000"
     depends_on:
       postgres:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v1/kpis')"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v1/health')"]
       interval: 5s
       timeout: 3s
       retries: 10
+
+  frontend:
+    build: ../frontend
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${BIS_FRONTEND_PORT:-8103}:8080"
+    depends_on:
+      - api
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # Login (plan: OIDC with Keycloak, own realm). Locally dev mode with file storage; on the VPS
+  # the existing Keycloak gets the same realm. Clients/realm: infra/keycloak/realm-bis.json;
+  # scopes and the demo user are created by `bis setup`.
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.4.0
+    restart: unless-stopped
+    command: ["start-dev", "--import-realm"]
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${BIS_KEYCLOAK_ADMIN_PASSWORD:?Set BIS_KEYCLOAK_ADMIN_PASSWORD in infra/.env}
+      # Tokens carry this issuer however Keycloak is reached; the API fetches keys internally.
+      KC_HOSTNAME: http://127.0.0.1:${BIS_KEYCLOAK_PORT:-8180}
+      KC_HOSTNAME_BACKCHANNEL_DYNAMIC: "true"
+      KC_HEALTH_ENABLED: "true"
+    ports:
+      - "127.0.0.1:${BIS_KEYCLOAK_PORT:-8180}:8080"
+    volumes:
+      - keycloak_data:/opt/keycloak/data
+      - ./keycloak/realm-bis.json:/opt/keycloak/data/import/realm-bis.json:ro
+    healthcheck:
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/127.0.0.1/9000 && printf 'GET /health/ready HTTP/1.0\r\n\r\n' >&3 && grep -q UP <&3"]
+      interval: 5s
+      timeout: 3s
+      retries: 40
 
   # Local test inbox for alert emails (SMTP 1025, web UI 8025). Not used on the VPS.
   mailpit:
@@ -63,4 +107,5 @@ services:
       - "127.0.0.1:${BIS_MAILPIT_UI_PORT:-8025}:8025"
 
 volumes:
-  pgdata:
+  pgdata_pg16vector:
+  keycloak_data:

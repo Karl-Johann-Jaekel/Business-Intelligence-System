@@ -4,7 +4,7 @@ from pathlib import Path
 
 from psycopg import sql
 
-from ingestion.config import ERP_DSN, OLIST_DIR
+from ingestion.config import OLIST_DIR, erp_dsn
 from ingestion.db import connect
 
 ERP_DDL = """
@@ -77,15 +77,15 @@ TABLE_FILES = (
 )
 
 
-def is_seeded(dsn: str = ERP_DSN) -> bool:
-    with connect(dsn) as conn:
+def is_seeded(dsn: str | None = None) -> bool:
+    with connect(dsn or erp_dsn()) as conn:
         exists = conn.execute("SELECT to_regclass('erp.payments') IS NOT NULL").fetchone()[0]
         return bool(exists) and conn.execute("SELECT count(*) FROM erp.payments").fetchone()[0] > 0
 
 
-def seed(source_dir: Path = OLIST_DIR, dsn: str = ERP_DSN) -> dict[str, int]:
+def seed(source_dir: Path = OLIST_DIR, dsn: str | None = None) -> dict[str, int]:
     counts = {}
-    with connect(dsn) as conn:
+    with connect(dsn or erp_dsn()) as conn:
         conn.execute(ERP_DDL)
         for table, filename in TABLE_FILES:
             stmt = sql.SQL("COPY {} FROM STDIN WITH (FORMAT csv, HEADER true)").format(

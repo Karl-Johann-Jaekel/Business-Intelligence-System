@@ -109,10 +109,11 @@ Dagster-Assets nach den Marts: `insights/anomalies` → `insights/briefing` → 
 - **Live-Messung inklusive Regionen/Kategorien** (Backfill 2017-10-01 bis 2018-01-11): 1,8 Alarme
   pro KPI und Monat außerhalb der Black-Friday-Woche; 40 weitere Alarme in der Woche
   24.–29.11.2017 sind echte Ereignisse.
-- **Outbox** `ops.insights`: ein `insight.v1` pro Befund, Idempotenz über `dedup_key`
+- **Outbox** `ops.events` (bis 2026-10-08 `ops.insights`, migriert in `ensure_ops_schema`): ein
+  Event pro Befund (`event_type` `insight`, ab K3 auch `decision`), Idempotenz über `dedup_key`
   (Typ, KPI, Entität, Periode). Backfill: `python -m analytics.detect --from … --to …`.
 - **Dispatcher** (`events/dispatch.py`): Empfänger aus `events/consumers.yaml`, Zustellstatus je
-  Insight und Empfänger in `ops.insight_deliveries`, Wiederholung mit Backoff (1, 2, 4, 8 min,
+  Event und Empfänger in `ops.event_deliveries`, Wiederholung mit Backoff (1, 2, 4, 8 min,
   max. 5 Versuche), `FOR UPDATE SKIP LOCKED`. Das Alter (`max_age_days`) zählt in
   Simulationszeit, damit ein Backfill keine Mail-Flut auslöst.
 - **E-Mail**: HTML + Text, Deep Link ins Dashboard. Lokal landet alles in Mailpit
@@ -125,5 +126,36 @@ Dagster-Assets nach den Marts: `insights/anomalies` → `insights/briefing` → 
   Zugangsdaten wird das Briefing übersprungen, Alerts laufen weiter.
 
 Neue API-Endpoints: `GET /api/v1/insights` (`since`, `type`, `severity` als Mindeststufe, `kpi`)
-und `GET /api/v1/briefings/latest`. Die Rolle `bis_api` darf zusätzlich `ops.insights` lesen,
+und `GET /api/v1/briefings/latest`. Die Rolle `bis_api` darf zusätzlich `ops.events` lesen,
 nicht aber das Zustellprotokoll.
+
+## Plan v2: Angleichung (2026-10-08)
+
+- **pgvector:** Image `pgvector/pgvector:0.8.1-pg16`, Erweiterung `vector` in `warehouse`. Das
+  alte Alpine-Image sortiert Text anders (musl vs. glibc); die Migration lief daher per
+  Dump/Restore in ein neues Volume `pgdata_pg16vector`.
+- **Verträge:** [contracts/](../contracts/README.md) ist die Quelle der Wahrheit für `insight.v1`
+  und den Entitäts-Namensraum. `tests/test_contracts.py` prüft Beispiele, das Pydantic-Modell
+  (Felder deckungsgleich) und echte Outbox-Payloads sowie Entitäts-IDs aus den Dimensionen.
+  Neu in `insight.v1`: optionales `context_ref` (K3).
+- **Datenklassen:** Jeder Empfänger hat `max_data_class` (E-Mail: `internal`), das Event trägt
+  `data_class` als Spalte. Die LLM-Schicht erzwingt Plan §8: jeder Aufruf nennt seine
+  Datenklasse, ein externer Provider lehnt alles über `public` mit `LLMRoutingError` ab, bevor
+  etwas das System verlässt. Das Briefing bekommt nur Kennzahlen, die der Provider sehen darf.
+- **Registry-Owner:** `person:`-IDs des Referenzunternehmens ([reference-company.md](reference-company.md)).
+- **Secrets:** keine Passwort-Defaults im Code. `infra/.env` (git-ignored) wird von `bis setup`
+  mit Zufallswerten erzeugt und um neue Schlüssel ergänzt; Compose bricht ohne Werte ab.
+
+## Login (Keycloak)
+
+| Teil | Umsetzung |
+|---|---|
+| Realm | `bis`, Datei [infra/keycloak/realm-bis.json](../infra/keycloak/realm-bis.json) (Clients) |
+| Clients | `bis-frontend` (public, Authorization Code + PKCE, Audience-Mapper auf `bis-api`), `bis-api` (bearer-only) |
+| Scopes | `read:kpi`, `read:knowledge`, `write:facts`, `admin:review` (Plan §9); Dashboard: `read:kpi` |
+| Einrichtung | `orchestration/keycloak_setup.py` über die Admin-API, idempotent, aus `bis setup` |
+| API | `api/auth.py`: Signatur (JWKS), Issuer, Audience, Ablauf, Scope pro Endpoint; 401/403 mit `WWW-Authenticate` |
+| Frontend | `oidc-client-ts`, Token im `sessionStorage`, bei 401 neuer Login |
+
+Lokal läuft Keycloak im Dev-Modus mit Dateispeicher. Auf dem VPS bekommt das bestehende
+Keycloak den Realm `bis` (offener Punkt 1 im Plan), die Redirect-URIs werden angepasst.

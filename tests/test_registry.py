@@ -16,7 +16,7 @@ BASE = {
     "entity_type": "region",
     "data_origin": "real",
     "data_class": "public",
-    "owner": "sales",
+    "owner": "person:leitung-vertrieb",
 }
 
 
@@ -54,3 +54,8 @@ def test_missing_dbt_key_is_reported():
     errors = check_against_dbt([kpi], {"kpi_daily": {"other_kpi"}})
     assert "example_kpi: not produced by dbt model kpi_daily" in errors
     assert "other_kpi: in kpi_daily but missing from registry" in errors
+
+
+def test_owner_must_be_a_person_id():
+    with pytest.raises(ValidationError, match="owner"):
+        Kpi.model_validate({**BASE, "owner": "sales"})

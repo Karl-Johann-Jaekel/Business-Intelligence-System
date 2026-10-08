@@ -10,12 +10,16 @@ from fastapi import Depends, FastAPI, HTTPException, Query
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
+from api.auth import require_scope
 from api.periods import default_window, normalise, previous_window
 from api.repository import Grain, Repository, WarehouseRepository
 from api.settings import api_dsn
 from registry import Kpi, load_registry
 
 app = FastAPI(title="Business-Intelligence-System API", version="1.0")
+
+# Scopes per endpoint (plan section 9); /health stays open for probes.
+READ_KPI = Depends(require_scope("read:kpi"))
 
 
 # --- dependencies -------------------------------------------------------------------------
@@ -152,17 +156,17 @@ def _change(current: float | None, previous: float | None) -> tuple[float | None
 # --- routes -------------------------------------------------------------------------------
 
 
-@app.get("/api/v1/kpis", response_model=list[Kpi])
+@app.get("/api/v1/kpis", response_model=list[Kpi], dependencies=[READ_KPI])
 def list_kpis(kpis: RegistryDep) -> list[Kpi]:
     return list(kpis.values())
 
 
-@app.get("/api/v1/kpis/{key}", response_model=Kpi)
+@app.get("/api/v1/kpis/{key}", response_model=Kpi, dependencies=[READ_KPI])
 def get_kpi(key: str, kpis: RegistryDep) -> Kpi:
     return _kpi(key, kpis)
 
 
-@app.get("/api/v1/kpis/{key}/series", response_model=SeriesResponse)
+@app.get("/api/v1/kpis/{key}/series", response_model=SeriesResponse, dependencies=[READ_KPI])
 def kpi_series(
     key: str,
     kpis: RegistryDep,
@@ -193,7 +197,7 @@ def kpi_series(
     )
 
 
-@app.get("/api/v1/kpis/{key}/breakdown", response_model=BreakdownResponse)
+@app.get("/api/v1/kpis/{key}/breakdown", response_model=BreakdownResponse, dependencies=[READ_KPI])
 def kpi_breakdown(
     key: str,
     kpis: RegistryDep,
@@ -248,7 +252,7 @@ def _public(payload: dict) -> dict:
     return payload
 
 
-@app.get("/api/v1/insights")
+@app.get("/api/v1/insights", dependencies=[READ_KPI])
 def list_insights(
     repo: RepoDep,
     since: date | None = None,
@@ -262,7 +266,7 @@ def list_insights(
     return [_public(r) for r in rows]
 
 
-@app.get("/api/v1/briefings/latest")
+@app.get("/api/v1/briefings/latest", dependencies=[READ_KPI])
 def latest_briefing(repo: RepoDep) -> dict:
     payload = repo.latest_briefing()
     if payload is None:

@@ -44,7 +44,8 @@ class Kpi(BaseModel):
     alert: AlertConfig | None = None
     data_origin: Literal["real", "partly_synthetic"]
     data_class: Literal["public", "internal", "confidential"]
-    owner: str
+    # Person node of the reference company (docs/reference-company.md), e.g. person:leitung-logistik.
+    owner: str = Field(pattern=r"^person:[a-z0-9]+(-[a-z0-9]+)*$")
 
     @model_validator(mode="after")
     def _consistency(self) -> "Kpi":

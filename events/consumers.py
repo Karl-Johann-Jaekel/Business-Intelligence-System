@@ -28,13 +28,16 @@ class ConsumerConfig(BaseModel):
     types: list[Literal["anomaly", "briefing", "forecast_deviation", "data_quality"]]
     min_severity: Severity = "warning"
     max_age_days: int = 2
+    # Highest data class this consumer may receive (plan section 8). Email leaves the system via an
+    # external SMTP provider, so confidential events (decisions, meetings) never go there.
+    max_data_class: Literal["public", "internal", "confidential"] = "internal"
     to_env: str | None = None
     url_env: str | None = None
     secret_env: str | None = None
 
 
 class Sender(Protocol):
-    def send(self, payload: dict[str, Any]) -> None: ...
+    def send(self, event_id: str, payload: dict[str, Any]) -> None: ...
 
 
 @dataclass(frozen=True)
@@ -65,14 +68,14 @@ class EmailSender:
         self.smtp = smtp
         self.dashboard_url = dashboard_url
 
-    def send(self, payload: dict[str, Any]) -> None:
+    def send(self, event_id: str, payload: dict[str, Any]) -> None:
         subject, html, text = render_email(payload, self.dashboard_url)
         message = EmailMessage()
         message["Subject"] = subject
         message["From"] = self.smtp.sender
         message["To"] = ", ".join(self.recipients)
         # Lets mail clients and the SMTP provider de-duplicate retried deliveries.
-        message["Message-ID"] = f"<{payload['insight_id']}@bis.local>"
+        message["Message-ID"] = f"<{event_id}@bis.local>"
         message.set_content(text)
         message.add_alternative(html, subtype="html")
         with smtplib.SMTP(self.smtp.host, self.smtp.port, timeout=15) as smtp:
@@ -88,22 +91,23 @@ def signature(secret: str, body: bytes) -> str:
 
 
 class WebhookSender:
-    """POSTs the insight as JSON. Receivers verify X-BIS-Signature (HMAC-SHA256 of the raw body)
-    and de-duplicate by X-BIS-Insight-Id."""
+    """POSTs the event as JSON. Receivers verify X-BIS-Signature (HMAC-SHA256 of the raw body),
+    de-duplicate by X-BIS-Event-Id and dispatch on X-BIS-Event-Type (= schema_version)."""
 
     def __init__(self, url: str, secret: str, client: httpx.Client | None = None):
         self.url = url
         self.secret = secret
         self.client = client or httpx.Client(timeout=10)
 
-    def send(self, payload: dict[str, Any]) -> None:
+    def send(self, event_id: str, payload: dict[str, Any]) -> None:
         body = json.dumps(payload, separators=(",", ":"), sort_keys=True).encode()
         response = self.client.post(
             self.url,
             content=body,
             headers={
                 "Content-Type": "application/json",
-                "X-BIS-Insight-Id": str(payload["insight_id"]),
+                "X-BIS-Event-Id": event_id,
+                "X-BIS-Event-Type": str(payload.get("schema_version", "")),
                 "X-BIS-Signature": signature(self.secret, body),
             },
         )

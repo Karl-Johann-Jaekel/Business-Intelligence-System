@@ -11,7 +11,7 @@ from events.insight import Evidence, Insight, Period, save
 from llm import context as ctx
 from llm.guardrail import unsupported_numbers
 from llm.provider import LLMError, LLMProvider
-from registry import Kpi, load_registry
+from registry import load_registry
 
 log = logging.getLogger(__name__)
 MAX_ATTEMPTS = 3
@@ -66,7 +66,7 @@ def generate(provider: LLMProvider, context: dict) -> BriefingResult:
     prompt = f"Daten für das Briefing:\n\n{source}"
     rejected: list[list[str]] = []
     for attempt in range(1, MAX_ATTEMPTS + 1):
-        draft = provider.generate(SYSTEM_PROMPT, prompt, Briefing)
+        draft = provider.generate(SYSTEM_PROMPT, prompt, Briefing, data_class=context["data_class"])
         problems = unsupported_numbers(_all_text(draft), source) + _evidence_problems(draft, source)
         if not problems:
             return BriefingResult(draft, attempt, rejected)
@@ -80,15 +80,10 @@ def generate(provider: LLMProvider, context: dict) -> BriefingResult:
     return BriefingResult(None, MAX_ATTEMPTS, rejected)
 
 
-def _data_class(kpis: list[Kpi]) -> str:
-    order = ["public", "internal", "confidential"]
-    return max((k.data_class for k in kpis), key=order.index)
-
-
 def run(conn: psycopg.Connection, provider: LLMProvider, sim_date: date) -> dict:
     """Create and store the briefing for sim_date. Returns metadata for the pipeline."""
     kpis = load_registry()
-    context = ctx.build(conn, kpis, sim_date)
+    context = ctx.build(conn, kpis, sim_date, provider.allowed_data_classes)
     try:
         result = generate(provider, context)
     except LLMError as exc:
@@ -104,7 +99,7 @@ def run(conn: psycopg.Connection, provider: LLMProvider, sim_date: date) -> dict
         severity="warning" if has_critical else "info",
         evidence=Evidence(method="llm_briefing", provider=provider.name, model=provider.model),
         summary=result.briefing.summary,
-        data_class=_data_class(kpis),
+        data_class=context["data_class"],
         details={
             "briefing": result.briefing.model_dump(),
             "attempts": result.attempts,

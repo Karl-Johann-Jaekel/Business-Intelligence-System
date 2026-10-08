@@ -6,6 +6,7 @@
 #   type          email | webhook
 #   types         insight types to deliver
 #   min_severity  info | warning | critical
+#   max_data_class  highest data class the consumer may receive (default internal)
 #   max_age_days  insights whose period ended more than this many days before the simulation date
 #                 are marked skipped (no flood after a backfill or when a consumer is added)
 
@@ -15,6 +16,8 @@
   # info lets the daily briefing through; anomalies are always warning or critical.
   min_severity: info
   max_age_days: 2
+  # Leaves the system via an external SMTP provider: never confidential content.
+  max_data_class: internal
   to_env: BIS_ALERT_TO
 
 # Example for Hive Mind / Central-Intelligence-Agent (Phase 4):

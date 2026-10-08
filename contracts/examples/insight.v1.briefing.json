@@ -1,0 +1,29 @@
+{
+  "schema_version": "insight.v1",
+  "insight_id": "0d9e8f7a-6b5c-4d3e-8f2a-1b0c9d8e7f6a",
+  "source": "business-intelligence-system",
+  "type": "briefing",
+  "kpi": null,
+  "period": {"start": "2018-01-08", "end": "2018-01-08", "grain": "day"},
+  "severity": "info",
+  "direction": null,
+  "observed": null,
+  "expected": null,
+  "deviation_pct": null,
+  "entity_refs": [],
+  "evidence": {"method": "llm_briefing", "provider": "anthropic", "model": "claude-opus-5-5"},
+  "context_ref": null,
+  "summary": "Der Umsatz der letzten 7 Tage liegt mit 214.918,64 R$ um +119,4 % über der Vorwoche.",
+  "data_class": "public",
+  "created_at": "2026-10-08T09:13:30Z",
+  "details": {
+    "briefing": {
+      "summary": "Der Umsatz der letzten 7 Tage liegt mit 214.918,64 R$ um +119,4 % über der Vorwoche.",
+      "findings": [
+        {"text": "Umsatz +119,4 % gegenüber den 7 Tagen davor.", "kpi": "gmv", "evidence_ref": "kpi:gmv"}
+      ],
+      "actions": ["Lagerbestand der Kategorie computers_accessories prüfen."]
+    },
+    "attempts": 1
+  }
+}

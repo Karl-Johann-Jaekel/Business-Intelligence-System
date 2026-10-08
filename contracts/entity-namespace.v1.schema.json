@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Karl-Johann-Jaekel/Business-Intelligence-System/contracts/entity-namespace.v1.schema.json",
+  "title": "Entity namespace v1",
+  "description": "Shared entity IDs '<type>:<source key>'. Numbers-side IDs come straight from the KPI registry and the dimensions; knowledge-side IDs from the graph (phase K2).",
+  "$defs": {
+    "kpi": {"type": "string", "pattern": "^kpi:[a-z][a-z0-9_]*$", "description": "KPI registry key"},
+    "region": {"type": "string", "pattern": "^region:[A-Z]{2}$", "description": "Brazilian federal state code"},
+    "category": {"type": "string", "pattern": "^category:[a-z0-9_]+$", "description": "Product category (English name)"},
+    "product": {"type": "string", "pattern": "^product:[0-9a-f]{32}$"},
+    "customer": {"type": "string", "pattern": "^customer:[0-9a-f]{32}$", "description": "Olist customer_unique_id"},
+    "seller": {"type": "string", "pattern": "^seller:[0-9a-f]{32}$"},
+    "person": {"type": "string", "pattern": "^person:[a-z0-9]+(-[a-z0-9]+)*$", "description": "Synthetic person of the reference company"},
+    "team": {"type": "string", "pattern": "^team:[a-z0-9]+(-[a-z0-9]+)*$"},
+    "decision": {"type": "string", "pattern": "^decision:[a-z0-9]+(-[a-z0-9]+)*$"},
+    "meeting": {"type": "string", "pattern": "^meeting:[a-z0-9]+(-[a-z0-9]+)*$"},
+    "topic": {"type": "string", "pattern": "^topic:[a-z0-9]+(-[a-z0-9]+)*$"},
+    "insight": {"type": "string", "pattern": "^insight:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"},
+    "entity_id": {
+      "anyOf": [
+        {"$ref": "#/$defs/kpi"},
+        {"$ref": "#/$defs/region"},
+        {"$ref": "#/$defs/category"},
+        {"$ref": "#/$defs/product"},
+        {"$ref": "#/$defs/customer"},
+        {"$ref": "#/$defs/seller"},
+        {"$ref": "#/$defs/person"},
+        {"$ref": "#/$defs/team"},
+        {"$ref": "#/$defs/decision"},
+        {"$ref": "#/$defs/meeting"},
+        {"$ref": "#/$defs/topic"},
+        {"$ref": "#/$defs/insight"}
+      ]
+    },
+    "entity_ref": {
+      "type": "object",
+      "required": ["type", "id"],
+      "additionalProperties": false,
+      "properties": {
+        "type": {"enum": ["kpi", "region", "category", "product", "customer", "seller", "person", "team", "decision", "meeting", "topic", "insight"]},
+        "id": {"$ref": "#/$defs/entity_id"}
+      }
+    }
+  }
+}

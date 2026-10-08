@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Karl-Johann-Jaekel/Business-Intelligence-System/contracts/insight.v1.schema.json",
+  "title": "insight.v1",
+  "description": "An anomaly, briefing, forecast deviation or data-quality finding of the Business-Intelligence-System. Status: draft until milestone M1, then frozen (additive, optional fields only).",
+  "type": "object",
+  "required": ["schema_version", "insight_id", "source", "type", "period", "severity", "evidence", "summary", "data_class", "created_at"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {"const": "insight.v1"},
+    "insight_id": {"type": "string", "format": "uuid", "description": "Idempotency key; consumers must tolerate duplicate delivery"},
+    "source": {"const": "business-intelligence-system"},
+    "type": {"enum": ["anomaly", "briefing", "forecast_deviation", "data_quality"]},
+    "kpi": {"type": ["string", "null"], "pattern": "^[a-z][a-z0-9_]*$", "description": "KPI registry key without prefix; as an entity it is kpi:<key>"},
+    "period": {
+      "type": "object",
+      "required": ["start", "end", "grain"],
+      "additionalProperties": false,
+      "properties": {
+        "start": {"type": "string", "format": "date"},
+        "end": {"type": "string", "format": "date"},
+        "grain": {"enum": ["day", "month"]}
+      }
+    },
+    "severity": {"enum": ["info", "warning", "critical"]},
+    "direction": {"enum": ["up", "down", null]},
+    "observed": {"type": ["number", "null"]},
+    "expected": {"type": ["number", "null"]},
+    "deviation_pct": {"type": ["number", "null"], "description": "(observed - expected) / |expected| * 100"},
+    "entity_refs": {
+      "type": "array",
+      "items": {"$ref": "entity-namespace.v1.schema.json#/$defs/entity_ref"}
+    },
+    "evidence": {
+      "type": "object",
+      "required": ["method"],
+      "description": "How the finding was produced. Method-specific extra fields are allowed.",
+      "properties": {
+        "method": {"type": "string"},
+        "score": {"type": ["number", "null"]},
+        "query_ref": {"type": ["string", "null"], "description": "API path that reproduces the underlying series"}
+      }
+    },
+    "context_ref": {"type": ["string", "null"], "description": "API path of the context package (context.v1, phase K3)"},
+    "summary": {"type": "string", "minLength": 1},
+    "data_class": {"enum": ["public", "internal", "confidential"]},
+    "created_at": {"type": "string", "format": "date-time"},
+    "details": {
+      "type": ["object", "null"],
+      "description": "Type-specific content (e.g. the structured briefing). Not part of the stable core; consumers must not rely on it."
+    }
+  }
+}

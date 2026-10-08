@@ -7,6 +7,7 @@ import { KpiCard } from './components/KpiCard'
 import { KpiDetail } from './components/KpiDetail'
 import { PRESETS, presetWindow, readUrlState, writeUrlState } from './dates'
 import { formatDate } from './format'
+import { authEnabled, logout, userName } from './auth'
 import { useApi } from './useApi'
 
 const HEALTH_LABEL: Record<Health['status'], { text: string; color: string }> = {
@@ -67,6 +68,14 @@ export default function App() {
             <span className="dot" style={{ background: HEALTH_LABEL[status].color }} aria-hidden="true" />
             {HEALTH_LABEL[status].text}
             {simDate && <span className="muted">· Simulationsdatum {formatDate(simDate)}</span>}
+          </span>
+        )}
+        {authEnabled && (
+          <span className="user">
+            {userName()}{' '}
+            <button type="button" className="link-button" onClick={() => void logout()}>
+              Abmelden
+            </button>
           </span>
         )}
       </header>

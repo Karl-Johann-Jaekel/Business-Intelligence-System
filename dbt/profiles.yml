@@ -6,7 +6,7 @@ bis:
       host: "{{ env_var('BIS_PG_HOST', '127.0.0.1') }}"
       port: "{{ env_var('BIS_PG_PORT', '55432') | as_number }}"
       user: "{{ env_var('BIS_PG_USER', 'bis') }}"
-      password: "{{ env_var('BIS_PG_PASSWORD', 'bis_dev') }}"
+      password: "{{ env_var('BIS_PG_PASSWORD') }}"
       dbname: warehouse
       schema: analytics
       threads: 4

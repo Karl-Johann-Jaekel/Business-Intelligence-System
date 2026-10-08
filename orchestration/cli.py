@@ -17,11 +17,21 @@ ENV_DEFAULTS = {
     "BIS_PG_HOST": "127.0.0.1",
     "BIS_PG_PORT": "55432",
     "BIS_PG_USER": "bis",
-    "BIS_PG_PASSWORD": "bis_dev",
     "DAGSTER_HOME": str(REPO_ROOT / "orchestration" / "dagster_home"),
     # Local alerts go to the Mailpit test inbox (http://127.0.0.1:8025).
     "BIS_ALERT_TO": "team@bis.local",
 }
+
+
+def _ensure_env_file() -> None:
+    """Create infra/.env with random secrets on first use and load it."""
+    from ingestion.config import ENV_FILE, ensure_env_file, load_env_file
+
+    added = ensure_env_file()
+    if added:
+        # Only key names are printed, never values.
+        print(f"{ENV_FILE.relative_to(REPO_ROOT)}: added {', '.join(added)} (random secrets)", flush=True)
+    load_env_file()
 
 
 def _env() -> dict[str, str]:
@@ -53,10 +63,11 @@ def _dbt_parse() -> None:
 
 def cmd_setup(args: argparse.Namespace) -> None:
     from ingestion import clock
-    from ingestion.config import API_DB_PASSWORD
+    from ingestion.config import require_secret
     from ingestion.db import connect, ensure_api_role, ensure_ops_schema
     from ingestion.setup import download, seed_erp, synthetic
 
+    _ensure_env_file()
     print("Olist dataset ...", flush=True)
     download.download()
     if args.force or not seed_erp.is_seeded():
@@ -67,15 +78,29 @@ def cmd_setup(args: argparse.Namespace) -> None:
         print(synthetic.generate_all())
     with connect() as conn:
         ensure_ops_schema(conn)
-        ensure_api_role(conn, API_DB_PASSWORD)
+        ensure_api_role(conn, require_secret("BIS_API_DB_PASSWORD"))
         current = clock.get_sim_date(conn)
         if current is None or args.start_date:
             current = clock.set_sim_date(conn, args.start_date or DEFAULT_START_DATE)
     print(f"Simulation date: {current}")
     _dbt_parse()
+    _provision_keycloak()
+
+
+def _provision_keycloak() -> None:
+    import httpx
+
+    from orchestration.keycloak_setup import provision
+
+    try:
+        for line in provision():
+            print(f"Keycloak {line}", flush=True)
+    except httpx.HTTPError as exc:
+        print(f"Keycloak not provisioned ({exc.__class__.__name__}); is the container running?", flush=True)
 
 
 def cmd_up(args: argparse.Namespace) -> None:
+    _ensure_env_file()  # docker compose needs the secrets before the first start
     _run(["docker", "compose", "-f", str(COMPOSE_FILE), "up", "-d", "--build", "--wait"])
     cmd_setup(argparse.Namespace(force=False, start_date=None))
     if not args.no_dagster:
