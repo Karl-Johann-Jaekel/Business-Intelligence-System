@@ -19,6 +19,8 @@ ENV_DEFAULTS = {
     "BIS_PG_USER": "bis",
     "BIS_PG_PASSWORD": "bis_dev",
     "DAGSTER_HOME": str(REPO_ROOT / "orchestration" / "dagster_home"),
+    # Local alerts go to the Mailpit test inbox (http://127.0.0.1:8025).
+    "BIS_ALERT_TO": "team@bis.local",
 }
 
 

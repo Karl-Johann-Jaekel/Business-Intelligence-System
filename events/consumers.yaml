@@ -1,0 +1,27 @@
+# Recipients of insight.v1 events. Adding a recipient needs no code change in the dispatcher.
+# Secrets and addresses come from environment variables (`*_env`), never from this file.
+# A consumer whose required variables are unset is inactive.
+#
+# Fields:
+#   type          email | webhook
+#   types         insight types to deliver
+#   min_severity  info | warning | critical
+#   max_age_days  insights whose period ended more than this many days before the simulation date
+#                 are marked skipped (no flood after a backfill or when a consumer is added)
+
+- name: email
+  type: email
+  types: [anomaly, briefing]
+  # info lets the daily briefing through; anomalies are always warning or critical.
+  min_severity: info
+  max_age_days: 2
+  to_env: BIS_ALERT_TO
+
+# Example for Hive Mind / Central-Intelligence-Agent (Phase 4):
+# - name: hive-mind
+#   type: webhook
+#   types: [anomaly, briefing, data_quality]
+#   min_severity: info
+#   max_age_days: 7
+#   url_env: BIS_HIVEMIND_WEBHOOK_URL
+#   secret_env: BIS_HIVEMIND_WEBHOOK_SECRET
