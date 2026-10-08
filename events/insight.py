@@ -1,5 +1,6 @@
-"""insight.v1 - the event contract towards consumers (email, Hive Mind, Central-Intelligence-Agent).
-See docs/company-brain-interface.md. Changing a field here is a contract change."""
+"""insight.v1 - the event contract towards consumers (email, Central-Intelligence-Agent).
+Source of truth: contracts/insight.v1.schema.json; tests/test_contracts.py keeps this model and
+the schema in sync. Within v1 only additive, optional fields may be added."""
 
 import json
 import uuid
@@ -15,6 +16,7 @@ SOURCE = "business-intelligence-system"
 InsightType = Literal["anomaly", "briefing", "forecast_deviation", "data_quality"]
 Severity = Literal["info", "warning", "critical"]
 SEVERITY_RANK = {"info": 0, "warning": 1, "critical": 2}
+DATA_CLASS_RANK = {"public": 0, "internal": 1, "confidential": 2}
 
 
 class Period(BaseModel):
@@ -52,6 +54,8 @@ class Insight(BaseModel):
     deviation_pct: float | None = None
     entity_refs: list[EntityRef] = []
     evidence: Evidence
+    # Link to the context package (/api/v1/context, phase K3); None until the knowledge layer exists.
+    context_ref: str | None = None
     summary: str
     data_class: Literal["public", "internal", "confidential"]
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
@@ -69,11 +73,11 @@ def save(conn: psycopg.Connection, insight: Insight) -> bool:
     """Insert into the outbox. Returns False if the same finding already exists. Does not commit."""
     row = conn.execute(
         """
-        INSERT INTO ops.insights
-            (insight_id, dedup_key, type, kpi, period_start, period_end, severity, payload)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s::jsonb)
+        INSERT INTO ops.events (event_id, event_type, dedup_key, type, kpi, period_start, period_end,
+                                severity, data_class, payload)
+        VALUES (%s, 'insight', %s, %s, %s, %s, %s, %s, %s, %s::jsonb)
         ON CONFLICT (dedup_key) DO NOTHING
-        RETURNING insight_id
+        RETURNING event_id
         """,
         (
             insight.insight_id,
@@ -83,6 +87,7 @@ def save(conn: psycopg.Connection, insight: Insight) -> bool:
             insight.period.start,
             insight.period.end,
             insight.severity,
+            insight.data_class,
             json.dumps(insight.model_dump(mode="json")),
         ),
     ).fetchone()

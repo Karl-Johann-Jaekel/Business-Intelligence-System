@@ -62,10 +62,13 @@ def test_webhook_signs_raw_body():
         return httpx.Response(204)
 
     payload = _payload()
-    WebhookSender("http://hook", "s3cret", httpx.Client(transport=httpx.MockTransport(handler))).send(payload)
+    WebhookSender("http://hook", "s3cret", httpx.Client(transport=httpx.MockTransport(handler))).send(
+        payload["insight_id"], payload
+    )
     expected = "sha256=" + hmac.new(b"s3cret", seen["body"], hashlib.sha256).hexdigest()
     assert seen["headers"]["X-BIS-Signature"] == expected == signature("s3cret", seen["body"])
-    assert seen["headers"]["X-BIS-Insight-Id"] == payload["insight_id"]
+    assert seen["headers"]["X-BIS-Event-Id"] == payload["insight_id"]
+    assert seen["headers"]["X-BIS-Event-Type"] == "insight.v1"
     assert json.loads(seen["body"])["schema_version"] == "insight.v1"
 
 
@@ -85,7 +88,7 @@ def _db_available() -> bool:
         with connect() as conn:
             ensure_ops_schema(conn)
         return True
-    except psycopg.Error:
+    except (psycopg.Error, RuntimeError):  # RuntimeError: no secrets configured
         return False
 
 
@@ -98,23 +101,25 @@ class FlakySender:
         self.failures = failures
         self.sent: list[str] = []
 
-    def send(self, payload: dict) -> None:
+    def send(self, event_id: str, payload: dict) -> None:
         if self.failures > 0:
             self.failures -= 1
             raise ConnectionError("smtp down")
-        self.sent.append(payload["insight_id"])
+        self.sent.append(event_id)
 
 
 @pytest.fixture
 def conn():
     with connect() as conn:
         yield conn
-        conn.execute("DELETE FROM ops.insight_deliveries WHERE consumer = %s", (CONSUMER,))
-        conn.execute("DELETE FROM ops.insights WHERE dedup_key LIKE 'anomaly:test_%%'")
+        conn.execute("DELETE FROM ops.event_deliveries WHERE consumer = %s", (CONSUMER,))
+        conn.execute("DELETE FROM ops.events WHERE dedup_key LIKE 'anomaly:test_%%'")
         conn.commit()
 
 
-def _insight(kpi: str, severity: str = "warning", day: date = date(2018, 1, 5)) -> Insight:
+def _insight(
+    kpi: str, severity: str = "warning", day: date = date(2018, 1, 5), data_class: str = "public"
+) -> Insight:
     return Insight(
         type="anomaly",
         kpi=kpi,
@@ -122,7 +127,7 @@ def _insight(kpi: str, severity: str = "warning", day: date = date(2018, 1, 5)) 
         severity=severity,
         evidence=Evidence(method="stl_mad", score=5.0),
         summary="test",
-        data_class="public",
+        data_class=data_class,
     )
 
 
@@ -142,6 +147,7 @@ def test_dispatch_filters_retries_and_never_resends(conn, monkeypatch):
     save(conn, _insight("test_kpi_warn", "warning", today))
     save(conn, _insight("test_kpi_info", "info", today))
     save(conn, _insight("test_kpi_old", "critical", today - timedelta(days=30)))  # outside max_age
+    save(conn, _insight("test_kpi_secret", "critical", today, data_class="confidential"))
     conn.commit()
     consumer = ConsumerConfig(
         name=CONSUMER, type="webhook", types=["anomaly"], min_severity="warning", max_age_days=1
@@ -152,7 +158,7 @@ def test_dispatch_filters_retries_and_never_resends(conn, monkeypatch):
     statuses = dict(
         conn.execute(
             """
-            SELECT i.kpi, d.status FROM ops.insight_deliveries d JOIN ops.insights i USING (insight_id)
+            SELECT i.kpi, d.status FROM ops.event_deliveries d JOIN ops.events i USING (event_id)
             WHERE d.consumer = %s AND i.kpi LIKE 'test_%%'
             """,
             (CONSUMER,),
@@ -160,18 +166,19 @@ def test_dispatch_filters_retries_and_never_resends(conn, monkeypatch):
     )
     assert statuses["test_kpi_info"] == "skipped"
     assert statuses["test_kpi_old"] == "skipped"
+    assert statuses["test_kpi_secret"] == "skipped"  # above the consumer's max_data_class
     assert first.retrying >= 1  # the first delivery attempt failed
 
     dispatch.run(conn, [consumer], {CONSUMER: sender})  # retry is due immediately (backoff 0)
     dispatch.run(conn, [consumer], {CONSUMER: sender})  # nothing left to send
     test_ids = {
         str(r[0])
-        for r in conn.execute("SELECT insight_id FROM ops.insights WHERE kpi = 'test_kpi_warn'").fetchall()
+        for r in conn.execute("SELECT event_id FROM ops.events WHERE kpi = 'test_kpi_warn'").fetchall()
     }
     assert [i for i in sender.sent if i in test_ids] == list(test_ids)  # delivered exactly once
     status, attempts = conn.execute(
         """
-        SELECT d.status, d.attempts FROM ops.insight_deliveries d JOIN ops.insights i USING (insight_id)
+        SELECT d.status, d.attempts FROM ops.event_deliveries d JOIN ops.events i USING (event_id)
         WHERE d.consumer = %s AND i.kpi = 'test_kpi_warn'
         """,
         (CONSUMER,),

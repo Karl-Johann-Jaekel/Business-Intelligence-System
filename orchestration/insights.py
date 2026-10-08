@@ -26,7 +26,7 @@ def _sim_date(conn):
     deps=[AssetKey(["marts", "kpi_daily"]), AssetKey(["marts", "kpi_monthly"])],
     group_name=GROUP,
     kinds={"python"},
-    description="Registry alert rules (stl_mad, threshold) for the simulation date -> ops.insights",
+    description="Registry alert rules (stl_mad, threshold) for the simulation date -> ops.events",
 )
 def anomalies(context: AssetExecutionContext) -> MaterializeResult:
     with connect() as conn:
@@ -42,7 +42,7 @@ def anomalies(context: AssetExecutionContext) -> MaterializeResult:
     deps=[ANOMALIES],
     group_name=GROUP,
     kinds={"python"},
-    description="Daily AI analyst briefing (number guardrail) -> ops.insights. "
+    description="Daily AI analyst briefing (number guardrail) -> ops.events. "
     "Skipped without LLM credentials.",
 )
 def daily_briefing(context: AssetExecutionContext) -> MaterializeResult:

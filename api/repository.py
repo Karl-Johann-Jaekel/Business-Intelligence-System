@@ -151,8 +151,9 @@ class WarehouseRepository:
     ) -> list[dict]:
         rows = self.conn.execute(
             """
-            SELECT payload FROM ops.insights
-            WHERE (%(since)s::date IS NULL OR period_end >= %(since)s)
+            SELECT payload FROM ops.events
+            WHERE event_type = 'insight'
+              AND (%(since)s::date IS NULL OR period_end >= %(since)s)
               AND (%(types)s::text[] IS NULL OR type = ANY(%(types)s))
               AND (CASE severity WHEN 'critical' THEN 2 WHEN 'warning' THEN 1 ELSE 0 END) >= %(rank)s
               AND (%(kpi)s::text IS NULL OR kpi = %(kpi)s)
@@ -167,7 +168,7 @@ class WarehouseRepository:
     def latest_briefing(self) -> dict | None:
         row = self.conn.execute(
             """
-            SELECT payload FROM ops.insights WHERE type = 'briefing'
+            SELECT payload FROM ops.events WHERE event_type = 'insight' AND type = 'briefing'
             ORDER BY period_end DESC, created_at DESC LIMIT 1
             """
         ).fetchone()

@@ -1,5 +1,5 @@
-"""Outbox dispatcher: delivers ops.insights to every configured consumer exactly once
-(idempotent per insight_id and consumer), retrying failures with exponential backoff."""
+"""Outbox dispatcher: delivers ops.events to every configured consumer exactly once
+(idempotent per event_id and consumer), retrying failures with exponential backoff."""
 
 import logging
 from collections.abc import Mapping
@@ -9,7 +9,7 @@ from datetime import timedelta
 import psycopg
 
 from events.consumers import ConsumerConfig, Sender, build_sender, load_consumers
-from events.insight import SEVERITY_RANK
+from events.insight import DATA_CLASS_RANK, SEVERITY_RANK
 
 log = logging.getLogger(__name__)
 
@@ -31,19 +31,22 @@ def enqueue(conn: psycopg.Connection, consumer: ConsumerConfig) -> int:
     """Create a delivery row per new insight; insights outside the consumer's filter are
     recorded as skipped so they are not reconsidered on every run."""
     min_rank = SEVERITY_RANK[consumer.min_severity]
+    max_class = DATA_CLASS_RANK[consumer.max_data_class]
     cursor = conn.execute(
         """
-        INSERT INTO ops.insight_deliveries (insight_id, consumer, status)
-        SELECT i.insight_id, %(consumer)s,
+        INSERT INTO ops.event_deliveries (event_id, consumer, status)
+        SELECT i.event_id, %(consumer)s,
                CASE WHEN i.type = ANY(%(types)s)
                      AND (CASE i.severity WHEN 'critical' THEN 2 WHEN 'warning' THEN 1 ELSE 0 END) >= %(rank)s
+                     AND (CASE i.data_class WHEN 'confidential' THEN 2 WHEN 'internal' THEN 1 ELSE 0 END)
+                         <= %(max_class)s
                      -- Age in simulation time, so a backfill of past periods never floods consumers.
                      AND i.period_end >= (SELECT sim_date FROM ops.sim_clock WHERE id = 1) - %(max_age)s
                     THEN 'pending' ELSE 'skipped' END
-        FROM ops.insights i
+        FROM ops.events i
         WHERE NOT EXISTS (
-            SELECT 1 FROM ops.insight_deliveries d
-            WHERE d.insight_id = i.insight_id AND d.consumer = %(consumer)s
+            SELECT 1 FROM ops.event_deliveries d
+            WHERE d.event_id = i.event_id AND d.consumer = %(consumer)s
         )
         """,
         {
@@ -51,6 +54,7 @@ def enqueue(conn: psycopg.Connection, consumer: ConsumerConfig) -> int:
             "types": list(consumer.types),
             "rank": min_rank,
             "max_age": consumer.max_age_days,
+            "max_class": max_class,
         },
     )
     return cursor.rowcount
@@ -60,8 +64,8 @@ def _due(conn: psycopg.Connection, consumer: str) -> list[tuple]:
     # SKIP LOCKED: two dispatcher runs never send the same delivery twice.
     return conn.execute(
         """
-        SELECT d.insight_id, d.attempts, i.payload
-        FROM ops.insight_deliveries d JOIN ops.insights i USING (insight_id)
+        SELECT d.event_id, d.attempts, i.payload
+        FROM ops.event_deliveries d JOIN ops.events i USING (event_id)
         WHERE d.consumer = %s AND d.status = 'pending' AND d.next_attempt_at <= now()
         ORDER BY i.created_at
         LIMIT %s
@@ -72,28 +76,28 @@ def _due(conn: psycopg.Connection, consumer: str) -> list[tuple]:
 
 
 def deliver_pending(conn: psycopg.Connection, consumer: str, sender: Sender, stats: DispatchStats) -> None:
-    for insight_id, attempts, payload in _due(conn, consumer):
+    for event_id, attempts, payload in _due(conn, consumer):
         try:
-            sender.send(payload)
+            sender.send(str(event_id), payload)
         except Exception as exc:  # noqa: BLE001 - any delivery error is retried
             attempts += 1
             final = attempts >= MAX_ATTEMPTS
             conn.execute(
                 """
-                UPDATE ops.insight_deliveries
+                UPDATE ops.event_deliveries
                 SET attempts = %s, status = %s, last_error = %s, next_attempt_at = now() + %s
-                WHERE insight_id = %s AND consumer = %s
+                WHERE event_id = %s AND consumer = %s
                 """,
                 (
                     attempts,
                     "failed" if final else "pending",
                     repr(exc)[:1000],
                     BASE_BACKOFF * 2 ** (attempts - 1),
-                    insight_id,
+                    event_id,
                     consumer,
                 ),
             )
-            log.warning("Delivery of %s to %s failed (attempt %s): %r", insight_id, consumer, attempts, exc)
+            log.warning("Delivery of %s to %s failed (attempt %s): %r", event_id, consumer, attempts, exc)
             if final:
                 stats.failed += 1
             else:
@@ -101,11 +105,11 @@ def deliver_pending(conn: psycopg.Connection, consumer: str, sender: Sender, sta
         else:
             conn.execute(
                 """
-                UPDATE ops.insight_deliveries
+                UPDATE ops.event_deliveries
                 SET attempts = attempts + 1, status = 'delivered', delivered_at = now(), last_error = NULL
-                WHERE insight_id = %s AND consumer = %s
+                WHERE event_id = %s AND consumer = %s
                 """,
-                (insight_id, consumer),
+                (event_id, consumer),
             )
             stats.delivered += 1
         conn.commit()  # one transaction per delivery: a crash never resends delivered ones
