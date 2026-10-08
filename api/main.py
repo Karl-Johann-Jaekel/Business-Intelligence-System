@@ -236,6 +236,40 @@ def kpi_breakdown(
     )
 
 
+SEVERITY_RANK = {"info": 0, "warning": 1, "critical": 2}
+InsightType = Literal["anomaly", "briefing", "forecast_deviation", "data_quality"]
+
+
+def _public(payload: dict) -> dict:
+    """insight.v1 as delivered to consumers; the analyst's raw input context stays internal."""
+    details = payload.get("details")
+    if details and "context" in details:
+        payload = payload | {"details": {k: v for k, v in details.items() if k != "context"}}
+    return payload
+
+
+@app.get("/api/v1/insights")
+def list_insights(
+    repo: RepoDep,
+    since: date | None = None,
+    type: Annotated[list[InsightType] | None, Query()] = None,  # noqa: A002 - public API name
+    severity: Literal["info", "warning", "critical"] = "info",
+    kpi: str | None = None,
+    limit: Annotated[int, Query(ge=1, le=500)] = 100,
+) -> list[dict]:
+    """insight.v1 events, newest period first. `severity` is the minimum level."""
+    rows = repo.insights(since, list(type) if type else None, SEVERITY_RANK[severity], kpi, limit)
+    return [_public(r) for r in rows]
+
+
+@app.get("/api/v1/briefings/latest")
+def latest_briefing(repo: RepoDep) -> dict:
+    payload = repo.latest_briefing()
+    if payload is None:
+        raise HTTPException(404, "No briefing yet")
+    return _public(payload)
+
+
 @app.get("/api/v1/health", response_model=HealthResponse)
 def health(repo: OptionalRepoDep):
     try:

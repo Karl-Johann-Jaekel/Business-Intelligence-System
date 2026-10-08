@@ -30,6 +30,15 @@ class FakeRepository:
         self.calls.append(("aggregate", kpi, grain, dimension, start, end))
         return self._aggregates.get((start, end), [])
 
+    briefing: dict | None = None
+
+    def insights(self, since, types, min_rank, kpi, limit):
+        self.calls.append(("insights", since, types, min_rank, kpi, limit))
+        return [{"insight_id": "1", "type": "anomaly", "details": None}]
+
+    def latest_briefing(self):
+        return self.briefing
+
 
 @pytest.fixture
 def repo():
@@ -150,3 +159,22 @@ def test_health_down_without_database():
         app.dependency_overrides.clear()
     assert response.status_code == 503
     assert response.json() == {"status": "down"}
+
+
+def test_insights_passes_filters(client, repo):
+    body = client.get(
+        "/api/v1/insights?since=2018-01-01&type=anomaly&severity=warning&kpi=gmv&limit=10"
+    ).json()
+    assert body == [{"insight_id": "1", "type": "anomaly", "details": None}]
+    assert repo.calls[-1] == ("insights", date(2018, 1, 1), ["anomaly"], 1, "gmv", 10)
+
+
+def test_insights_rejects_unknown_type(client):
+    assert client.get("/api/v1/insights?type=gossip").status_code == 422
+
+
+def test_latest_briefing_hides_internal_context(client, repo):
+    assert client.get("/api/v1/briefings/latest").status_code == 404
+    repo.briefing = {"type": "briefing", "details": {"briefing": {"summary": "x"}, "context": {"secret": 1}}}
+    body = client.get("/api/v1/briefings/latest").json()
+    assert body["details"] == {"briefing": {"summary": "x"}}
