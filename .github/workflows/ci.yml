@@ -65,7 +65,8 @@ jobs:
       - name: API image + its unit tests
         run: |
           docker build -f api/Dockerfile -t bis-api .
-          docker run --rm bis-api pytest -q tests/api
+          # The image runs as a non-root user without a writable /app: no pytest cache.
+          docker run --rm bis-api pytest -q -p no:cacheprovider tests/api
       - name: Frontend image
         run: docker build -t bis-frontend frontend
       - name: Mock marketing API image

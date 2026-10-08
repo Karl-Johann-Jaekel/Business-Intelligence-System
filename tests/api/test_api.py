@@ -178,3 +178,12 @@ def test_latest_briefing_hides_internal_context(client, repo):
     repo.briefing = {"type": "briefing", "details": {"briefing": {"summary": "x"}, "context": {"secret": 1}}}
     body = client.get("/api/v1/briefings/latest").json()
     assert body["details"] == {"briefing": {"summary": "x"}}
+
+
+def test_missing_database_config_is_reported_as_down_not_500(monkeypatch):
+    """Regression (CI run of PR #4): without BIS_API_DB_PASSWORD /health crashed with 500."""
+    monkeypatch.delenv("BIS_API_DB_PASSWORD", raising=False)
+    client = TestClient(app)  # real dependencies, no overrides
+    response = client.get("/api/v1/health")
+    assert response.status_code == 503 and response.json() == {"status": "down"}
+    assert client.get("/api/v1/kpis/gmv/series").status_code == 503
