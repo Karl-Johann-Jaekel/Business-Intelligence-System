@@ -17,6 +17,7 @@ Plan: `plan.md`. Architektur: `docs/architecture.md`. Python 3.13 venv in `.venv
 - Anomalie-Auswertung: `.venv/Scripts/python -m analytics.evaluate --start 2017-06-01` (~1 min)
 - Anomalie-Backfill: `.venv/Scripts/python -m analytics.detect --from 2017-10-01 --to 2018-01-11`
 - Mails ansehen: Mailpit http://127.0.0.1:8025
+- Dashboard (Container): http://127.0.0.1:8103 · Keycloak: http://127.0.0.1:8180 (Login `demo`, Passwort in `infra/.env`)
 - DB-Shell: `docker exec -it bis-postgres-1 psql -U bis -d warehouse`
 
 ## Fallstricke
@@ -27,6 +28,11 @@ Plan: `plan.md`. Architektur: `docs/architecture.md`. Python 3.13 venv in `.venv
 - Neuer KPI: Eintrag in `registry/kpis/*.yaml` **und** in `accepted_values` von `kpi_key`
   in `dbt/models/marts/_marts.yml`; `registry.validate` prüft beides.
 - Olist-Daten nie committen (`data/` ist ignoriert).
+- Keine Passwort-Defaults in Code oder Compose; neue Secrets als `generated-by-bis-setup` in
+  `infra/.env.example`, `bis setup` ergänzt `infra/.env`. Deren Inhalt nie ausgeben.
+- LLM-Aufrufe immer mit `data_class`; externer Provider nur `public` (`LLMRoutingError`).
+- Event-Formate ändern = `contracts/` zuerst, `tests/test_contracts.py` muss grün bleiben.
+- Python-Cookiejar schickt keine Cookies an `127.0.0.1` zurück (Keycloak-Tests: Header setzen).
 - Schwellen in der Registry nur mit `analytics.evaluate` ändern (Bericht in docs/ committen).
 - SQL-Kommentare in psycopg-Strings: kein `%` (wird als Platzhalter gelesen).
 - Ohne LLM-Zugangsdaten ist `insights/briefing` „skipped“, das ist kein Fehler.

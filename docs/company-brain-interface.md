@@ -1,5 +1,7 @@
 # Company-Brain-Schnittstelle (Entwurf)
 
+> Maßgeblich sind die Schemas in [contracts/](../contracts/README.md); dieses Dokument erklärt sie.
+
 Stand: 2026-10-07 · Status: **implementiert, noch nicht eingefroren** (Einfrieren nach Abnahme von Woche 3).
 
 Dieses Dokument beschreibt den Vertrag zwischen dem Business-Intelligence-System (BIS) und
@@ -69,7 +71,8 @@ Regeln:
 
 | Header | Inhalt |
 |---|---|
-| `X-BIS-Insight-Id` | `insight_id`, zur Deduplizierung beim Empfänger |
+| `X-BIS-Event-Id` | Event-ID (`insight_id`), zur Deduplizierung beim Empfänger |
+| `X-BIS-Event-Type` | `schema_version` des Bodys, z. B. `insight.v1` |
 | `X-BIS-Signature` | `sha256=<hex>`: HMAC-SHA256 des rohen Bodys mit dem geteilten Secret |
 
 Jede Antwort außer 2xx gilt als Fehler und wird mit Backoff wiederholt (max. 5 Versuche).
