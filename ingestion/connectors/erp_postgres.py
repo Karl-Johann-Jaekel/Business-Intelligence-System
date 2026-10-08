@@ -7,7 +7,7 @@ Orders, items and payments load incrementally by order purchase timestamp. Maste
 from datetime import date, timedelta
 
 from ingestion.base import Connector, Entity, ExtractResult
-from ingestion.config import ERP_DSN
+from ingestion.config import erp_dsn
 from ingestion.db import connect, query_df
 
 _WINDOW = """
@@ -98,12 +98,12 @@ class ErpPostgresConnector(Connector):
         ),
     )
 
-    def __init__(self, dsn: str = ERP_DSN):
-        self.dsn = dsn
+    def __init__(self, dsn: str | None = None):
+        self._dsn = dsn
 
     def extract(self, entity: Entity, since: str | None, until: date) -> ExtractResult:
         params = {"since": since, "until_excl": until + timedelta(days=1)}
-        with connect(self.dsn) as conn:
+        with connect(self._dsn or erp_dsn()) as conn:
             df = query_df(conn, _QUERIES[entity.name], params)
         if "_wm" not in df.columns:
             return ExtractResult(df)
