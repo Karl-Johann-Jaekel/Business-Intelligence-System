@@ -43,13 +43,41 @@ CREATE TABLE IF NOT EXISTS ops.clock_advances (
     to_date      date NOT NULL,
     advanced_at  timestamptz NOT NULL DEFAULT now()
 );
+
+-- Outbox for insight.v1 events (anomalies, briefings). dedup_key makes detection idempotent:
+-- re-running the same day never creates a second insight for the same finding.
+CREATE TABLE IF NOT EXISTS ops.insights (
+    insight_id    uuid PRIMARY KEY,
+    dedup_key     text NOT NULL UNIQUE,
+    type          text NOT NULL CHECK (type IN ('anomaly', 'briefing', 'forecast_deviation', 'data_quality')),
+    kpi           text,
+    period_start  date NOT NULL,
+    period_end    date NOT NULL,
+    severity      text NOT NULL CHECK (severity IN ('info', 'warning', 'critical')),
+    payload       jsonb NOT NULL,
+    created_at    timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS insights_period_idx ON ops.insights (period_end DESC, type);
+
+-- Delivery state per insight and consumer (email, webhooks). Retried with backoff.
+CREATE TABLE IF NOT EXISTS ops.insight_deliveries (
+    insight_id       uuid NOT NULL REFERENCES ops.insights ON DELETE CASCADE,
+    consumer         text NOT NULL,
+    status           text NOT NULL CHECK (status IN ('pending', 'delivered', 'failed', 'skipped')),
+    attempts         integer NOT NULL DEFAULT 0,
+    next_attempt_at  timestamptz NOT NULL DEFAULT now(),
+    last_error       text,
+    delivered_at     timestamptz,
+    PRIMARY KEY (insight_id, consumer)
+);
 """
 
 API_ROLE = "bis_api"
 
 
 def ensure_api_role(conn: psycopg.Connection, password: str) -> None:
-    """Read-only login role for the API. It may only read `marts` (grants are applied by dbt)."""
+    """Read-only login role for the API: `marts` (grants applied by dbt) and `ops.insights`.
+    Requires ensure_ops_schema() first."""
     exists = conn.execute("SELECT 1 FROM pg_roles WHERE rolname = %s", (API_ROLE,)).fetchone()
     role = sql.Identifier(API_ROLE)
     if not exists:
@@ -59,6 +87,9 @@ def ensure_api_role(conn: psycopg.Connection, password: str) -> None:
     conn.execute(sql.SQL("ALTER ROLE {} SET statement_timeout = '10s'").format(role))
     conn.execute("CREATE SCHEMA IF NOT EXISTS marts")
     conn.execute(sql.SQL("GRANT USAGE ON SCHEMA marts TO {}").format(role))
+    # Besides marts the API may read the insight outbox, nothing else in ops.
+    conn.execute(sql.SQL("GRANT USAGE ON SCHEMA ops TO {}").format(role))
+    conn.execute(sql.SQL("GRANT SELECT ON ops.insights TO {}").format(role))
     conn.commit()
 
 

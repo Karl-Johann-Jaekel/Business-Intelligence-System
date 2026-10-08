@@ -1,5 +1,6 @@
 # KPI registry for the Olist reference domain.
 # Every key must be produced by dbt (kpi_daily / kpi_monthly); `python -m registry.validate` checks this.
+# stl_mad thresholds are calibrated with injected anomalies, see docs/anomaly-evaluation.md.
 # Ratios are stored as fractions (0.05 = 5 %); multiples as factors (8.2 = 8.2x).
 
 - key: gmv
@@ -11,7 +12,7 @@
   direction: higher_is_better
   dimensions: [region, category]
   entity_type: category
-  alert: {method: stl_mad, threshold: 3.5, min_history_days: 56}
+  alert: {method: stl_mad, threshold: 4.0, min_history_days: 56}
   data_origin: real
   data_class: public
   owner: sales
@@ -39,7 +40,7 @@
   direction: higher_is_better
   dimensions: [region]
   entity_type: region
-  alert: {method: stl_mad, threshold: 4.0, min_history_days: 56}
+  alert: {method: stl_mad, threshold: 3.5, min_history_days: 56}
   data_origin: real
   data_class: public
   owner: sales
@@ -53,7 +54,7 @@
   direction: higher_is_better
   dimensions: [region]
   entity_type: region
-  alert: {method: stl_mad, threshold: 4.0, min_history_days: 56}
+  alert: {method: stl_mad, threshold: 3.5, min_history_days: 56}
   data_origin: real
   data_class: public
   owner: sales
@@ -67,7 +68,7 @@
   direction: lower_is_better
   dimensions: [region, category]
   entity_type: region
-  alert: {method: stl_mad, threshold: 4.0, min_history_days: 56}
+  alert: {method: stl_mad, threshold: 3.5, min_history_days: 56}
   data_origin: real
   data_class: public
   owner: operations
@@ -81,7 +82,7 @@
   direction: lower_is_better
   dimensions: [region]
   entity_type: region
-  alert: {method: stl_mad, threshold: 4.0, min_history_days: 56}
+  alert: {method: stl_mad, threshold: 3.5, min_history_days: 56}
   data_origin: real
   data_class: public
   owner: operations
@@ -95,7 +96,7 @@
   direction: lower_is_better
   dimensions: [region]
   entity_type: region
-  alert: {method: stl_mad, threshold: 3.5, min_history_days: 56}
+  alert: {method: stl_mad, threshold: 4.0, min_history_days: 56}
   data_origin: real
   data_class: public
   owner: operations
@@ -109,7 +110,7 @@
   direction: higher_is_better
   dimensions: [region]
   entity_type: region
-  alert: {method: stl_mad, threshold: 3.5, min_history_days: 56}
+  alert: {method: stl_mad, threshold: 4.5, min_history_days: 56}
   data_origin: real
   data_class: public
   owner: operations
@@ -123,7 +124,7 @@
   direction: higher_is_better
   dimensions: [region]
   entity_type: region
-  alert: {method: stl_mad, threshold: 3.5, min_history_days: 56}
+  alert: {method: stl_mad, threshold: 6.0, min_history_days: 56}
   data_origin: real
   data_class: public
   owner: customer_service
