@@ -15,7 +15,7 @@
   alert: {method: stl_mad, threshold: 4.0, min_history_days: 56}
   data_origin: real
   data_class: public
-  owner: sales
+  owner: person:leitung-vertrieb
 
 - key: orders_count
   label: Anzahl Bestellungen
@@ -29,7 +29,7 @@
   alert: {method: stl_mad, threshold: 3.5, min_history_days: 56}
   data_origin: real
   data_class: public
-  owner: sales
+  owner: person:leitung-vertrieb
 
 - key: avg_order_value
   label: Ø Warenkorbwert
@@ -43,7 +43,7 @@
   alert: {method: stl_mad, threshold: 3.5, min_history_days: 56}
   data_origin: real
   data_class: public
-  owner: sales
+  owner: person:leitung-vertrieb
 
 - key: items_per_order
   label: Ø Artikel pro Bestellung
@@ -57,7 +57,7 @@
   alert: {method: stl_mad, threshold: 3.5, min_history_days: 56}
   data_origin: real
   data_class: public
-  owner: sales
+  owner: person:leitung-vertrieb
 
 - key: freight_ratio
   label: Frachtkostenquote
@@ -71,7 +71,7 @@
   alert: {method: stl_mad, threshold: 3.5, min_history_days: 56}
   data_origin: real
   data_class: public
-  owner: operations
+  owner: person:leitung-logistik
 
 - key: cancellation_rate
   label: Stornoquote
@@ -85,7 +85,7 @@
   alert: {method: stl_mad, threshold: 3.5, min_history_days: 56}
   data_origin: real
   data_class: public
-  owner: operations
+  owner: person:leitung-logistik
 
 - key: delivery_time_avg_days
   label: Ø Lieferzeit (Tage)
@@ -99,7 +99,7 @@
   alert: {method: stl_mad, threshold: 4.0, min_history_days: 56}
   data_origin: real
   data_class: public
-  owner: operations
+  owner: person:leitung-logistik
 
 - key: on_time_rate
   label: Pünktlichkeitsquote
@@ -113,7 +113,7 @@
   alert: {method: stl_mad, threshold: 4.5, min_history_days: 56}
   data_origin: real
   data_class: public
-  owner: operations
+  owner: person:leitung-logistik
 
 - key: review_score_avg
   label: Ø Bewertung
@@ -127,7 +127,7 @@
   alert: {method: stl_mad, threshold: 6.0, min_history_days: 56}
   data_origin: real
   data_class: public
-  owner: customer_service
+  owner: person:leitung-kundenservice
 
 - key: new_customers
   label: Neukunden
@@ -140,7 +140,7 @@
   entity_type: region
   data_origin: real
   data_class: public
-  owner: marketing
+  owner: person:leitung-marketing
 
 - key: returning_customers
   label: Wiederkäufer
@@ -153,7 +153,7 @@
   entity_type: region
   data_origin: real
   data_class: public
-  owner: marketing
+  owner: person:leitung-marketing
 
 - key: conversion_rate
   label: Conversion Rate
@@ -166,7 +166,7 @@
   alert: {method: stl_mad, threshold: 3.5, min_history_days: 56}
   data_origin: partly_synthetic
   data_class: internal
-  owner: marketing
+  owner: person:leitung-marketing
 
 - key: roas
   label: ROAS
@@ -179,7 +179,7 @@
   alert: {method: stl_mad, threshold: 3.5, min_history_days: 56}
   data_origin: partly_synthetic
   data_class: internal
-  owner: marketing
+  owner: person:leitung-marketing
 
 - key: budget_deviation
   label: Budgetabweichung
@@ -193,4 +193,4 @@
   alert: {method: threshold, threshold: 0.25}
   data_origin: partly_synthetic
   data_class: internal
-  owner: finance
+  owner: person:leitung-finanzen
