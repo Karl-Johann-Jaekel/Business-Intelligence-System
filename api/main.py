@@ -13,7 +13,7 @@ from pydantic import BaseModel
 from api.auth import require_scope
 from api.periods import default_window, normalise, previous_window
 from api.repository import Grain, Repository, WarehouseRepository
-from api.settings import api_dsn
+from api.settings import ConfigError, api_dsn
 from registry import Kpi, load_registry
 
 app = FastAPI(title="Business-Intelligence-System API", version="1.0")
@@ -37,7 +37,7 @@ def get_registry() -> dict[str, Kpi]:
 def get_repository() -> Iterator[Repository]:
     try:
         conn = psycopg.connect(api_dsn())
-    except psycopg.OperationalError as exc:
+    except (psycopg.OperationalError, ConfigError) as exc:
         raise HTTPException(503, "Warehouse unavailable") from exc
     try:
         yield WarehouseRepository(conn)
@@ -49,7 +49,7 @@ def get_optional_repository() -> Iterator[Repository | None]:
     """Like get_repository, but yields None when the warehouse is unreachable (health checks)."""
     try:
         conn = psycopg.connect(api_dsn())
-    except psycopg.OperationalError:
+    except (psycopg.OperationalError, ConfigError):
         yield None
         return
     try:
