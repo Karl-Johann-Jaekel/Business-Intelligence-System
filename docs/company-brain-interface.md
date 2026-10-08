@@ -1,6 +1,6 @@
 # Company-Brain-Schnittstelle (Entwurf)
 
-Stand: 2026-10-06 · Status: **Entwurf**, wird mit Abschluss von Woche 3 als `insight.v1` eingefroren.
+Stand: 2026-10-07 · Status: **implementiert, noch nicht eingefroren** (Einfrieren nach Abnahme von Woche 3).
 
 Dieses Dokument beschreibt den Vertrag zwischen dem Business-Intelligence-System (BIS) und
 späteren Konsumenten (Hive Mind, Central-Intelligence-Agent). Das BIS ist das quantitative
@@ -10,10 +10,10 @@ Organ: Es liefert berechnete Kennzahlen und daraus abgeleitete Ereignisse, keine
 
 | Kanal | Richtung | Inhalt | Status |
 |---|---|---|---|
-| `GET /api/v1/kpis` | Pull | KPI-Registry (Semantic Layer) | Woche 2 |
-| `GET /api/v1/kpis/{key}/series` | Pull | Zeitreihe einer Kennzahl | Woche 2 |
-| `GET /api/v1/insights` | Pull | Insights seit Zeitpunkt | Woche 3 |
-| Webhook (Outbox-Dispatcher) | Push | Insight-Events, HMAC-signiert | Woche 3 |
+| `GET /api/v1/kpis` | Pull | KPI-Registry (Semantic Layer) | umgesetzt |
+| `GET /api/v1/kpis/{key}/series` | Pull | Zeitreihe einer Kennzahl | umgesetzt |
+| `GET /api/v1/insights` | Pull | Insights seit Zeitpunkt | umgesetzt |
+| Webhook (Outbox-Dispatcher) | Push | Insight-Events, HMAC-signiert | umgesetzt, Empfänger per `events/consumers.yaml` |
 
 ## Entitäts-IDs
 
@@ -63,8 +63,19 @@ Regeln:
 - Zeitangaben beziehen sich auf die **Simulationszeit** (`ops.sim_clock`), `created_at` auf die
   echte Erzeugungszeit.
 
+## Webhook
+
+`POST` mit dem Insight als JSON-Body. Header:
+
+| Header | Inhalt |
+|---|---|
+| `X-BIS-Insight-Id` | `insight_id`, zur Deduplizierung beim Empfänger |
+| `X-BIS-Signature` | `sha256=<hex>`: HMAC-SHA256 des rohen Bodys mit dem geteilten Secret |
+
+Jede Antwort außer 2xx gilt als Fehler und wird mit Backoff wiederholt (max. 5 Versuche).
+
 ## Offene Fragen
 
-1. Signatur-Header und Schlüsselrotation für den Webhook
+1. Schlüsselrotation für das Webhook-Secret
 2. Rückkanal: Darf ein Konsument Insights quittieren oder kommentieren?
 3. Versionierung: Ab wann gilt eine Feldänderung als `insight.v2`?
