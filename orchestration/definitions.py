@@ -1,4 +1,4 @@
-"""Dagster code location: clock -> ingestion (one multi-asset per source) -> dbt -> checks."""
+"""Dagster code location: clock -> ingestion (one multi-asset per source) -> dbt -> insights."""
 
 import os
 import shutil
@@ -10,6 +10,7 @@ from dagster_dbt import DbtCliResource, DbtProject, dbt_assets
 from ingestion.config import REPO_ROOT
 from orchestration.assets import ingestion_assets, sim_clock
 from orchestration.checks import kpi_checks
+from orchestration.insights import insight_assets
 from orchestration.schedules import build_schedule
 
 DBT_DIR = REPO_ROOT / "dbt"
@@ -27,7 +28,7 @@ def bis_dbt_assets(context: AssetExecutionContext, dbt: DbtCliResource):
 daily_pipeline = define_asset_job("daily_pipeline", selection=AssetSelection.all())
 
 defs = Definitions(
-    assets=[sim_clock, *ingestion_assets, bis_dbt_assets],
+    assets=[sim_clock, *ingestion_assets, bis_dbt_assets, *insight_assets],
     asset_checks=kpi_checks,
     jobs=[daily_pipeline],
     schedules=[build_schedule(daily_pipeline)],

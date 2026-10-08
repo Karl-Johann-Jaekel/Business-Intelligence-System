@@ -64,6 +64,12 @@ class Repository(Protocol):
         self, kpi: str, grain: Grain, dimension: str, start: date, end: date
     ) -> list[Aggregate]: ...
 
+    def insights(
+        self, since: date | None, types: list[str] | None, min_rank: int, kpi: str | None, limit: int
+    ) -> list[dict]: ...
+
+    def latest_briefing(self) -> dict | None: ...
+
 
 def _f(value) -> float | None:
     return None if value is None else float(value)
@@ -139,3 +145,30 @@ class WarehouseRepository:
         ).format(table=sql.Identifier(table), date_col=sql.Identifier(date_col))
         rows = self.conn.execute(query, {"kpi": kpi, "dim": dimension, "start": start, "end": end})
         return [Aggregate(dim_value, entity_id, _f(value)) for dim_value, entity_id, value in rows]
+
+    def insights(
+        self, since: date | None, types: list[str] | None, min_rank: int, kpi: str | None, limit: int
+    ) -> list[dict]:
+        rows = self.conn.execute(
+            """
+            SELECT payload FROM ops.insights
+            WHERE (%(since)s::date IS NULL OR period_end >= %(since)s)
+              AND (%(types)s::text[] IS NULL OR type = ANY(%(types)s))
+              AND (CASE severity WHEN 'critical' THEN 2 WHEN 'warning' THEN 1 ELSE 0 END) >= %(rank)s
+              AND (%(kpi)s::text IS NULL OR kpi = %(kpi)s)
+            ORDER BY period_end DESC, CASE severity WHEN 'critical' THEN 0 WHEN 'warning' THEN 1 ELSE 2 END,
+                     created_at DESC
+            LIMIT %(limit)s
+            """,
+            {"since": since, "types": types, "rank": min_rank, "kpi": kpi, "limit": limit},
+        ).fetchall()
+        return [row[0] for row in rows]
+
+    def latest_briefing(self) -> dict | None:
+        row = self.conn.execute(
+            """
+            SELECT payload FROM ops.insights WHERE type = 'briefing'
+            ORDER BY period_end DESC, created_at DESC LIMIT 1
+            """
+        ).fetchone()
+        return row[0] if row else None

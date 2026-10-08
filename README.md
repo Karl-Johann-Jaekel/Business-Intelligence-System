@@ -14,7 +14,8 @@ Company Brain contract: [docs/company-brain-interface.md](docs/company-brain-int
 |---|---|---|
 | Week 1 – Foundation | Postgres, 4 connectors, dbt star schema + KPI marts, Dagster, KPI registry, CI | done |
 | Week 2 – Pipeline & dashboard | Daily schedule with retries, asset checks, read-only FastAPI, React dashboard | done |
-| Week 3 – Insights & operations | Anomaly detection, alerts, AI analyst, Keycloak, VPS | open |
+| Week 3 – Insights | Anomaly detection (calibrated), outbox + dispatcher, email alerts, AI analyst with number guardrail | done |
+| Week 3 – Operations | Keycloak login, VPS deployment, image builds | open |
 
 ## Quick start
 
@@ -49,6 +50,17 @@ bis materialize          # ingestion + dbt build for the current simulation date
 bis tick --days 5        # advance the clock one day at a time and run the pipeline
 bis clock show
 ```
+
+## Insights
+
+- Anomalies per registry rule (`stl_mad`, `threshold`); evaluation with injected anomalies:
+  86 % hit rate, 1.6 false alarms per KPI and simulated month
+  ([docs/anomaly-evaluation.md](docs/anomaly-evaluation.md)).
+- Every finding is an `insight.v1` event in the outbox `ops.insights`, delivered by the dispatcher
+  to the consumers in `events/consumers.yaml` (email; webhooks with HMAC signature).
+- Local alert emails go to Mailpit: http://127.0.0.1:8025
+- Daily AI briefing via Anthropic (`ANTHROPIC_API_KEY`); every number must occur in the computed
+  input, otherwise the draft is discarded and regenerated. Without credentials it is skipped.
 
 ## Sources
 

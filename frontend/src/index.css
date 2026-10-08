@@ -438,3 +438,34 @@ th {
 .delta-text.bad {
   color: var(--bad-text);
 }
+
+/* Insights */
+.insight-list {
+  list-style: none;
+  margin: 0 0 8px;
+  padding: 0;
+}
+.insight-list li {
+  display: grid;
+  grid-template-columns: 96px 92px 1fr auto;
+  gap: 8px;
+  align-items: baseline;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--grid);
+}
+.insight-list .sev {
+  font-weight: 600;
+  white-space: nowrap;
+}
+.insight-list .when {
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+@media (max-width: 640px) {
+  .insight-list li {
+    grid-template-columns: auto 1fr;
+  }
+  .insight-list .what {
+    grid-column: 1 / -1;
+  }
+}

@@ -10,8 +10,17 @@ export interface ChartSeries {
   points: Point[]
 }
 
+/** A flagged data point (e.g. a detected anomaly), drawn as a ring in a status colour. */
+export interface ChartMarker {
+  period: string
+  seriesId: string
+  label: string
+  color: string
+}
+
 interface Props {
   series: ChartSeries[]
+  markers?: ChartMarker[]
   unit: Unit
   grain: Grain
   height?: number
@@ -33,7 +42,7 @@ function useWidth<T extends HTMLElement>() {
 }
 
 /** Multi-series line chart: 2px lines, hairline grid, crosshair + one tooltip for all series. */
-export function LineChart({ series, unit, grain, height = 260, label }: Props) {
+export function LineChart({ series, markers = [], unit, grain, height = 260, label }: Props) {
   const [containerRef, width] = useWidth<HTMLDivElement>()
   const [hover, setHover] = useState<number | null>(null)
 
@@ -147,6 +156,23 @@ export function LineChart({ series, unit, grain, height = 260, label }: Props) {
               strokeLinecap="round"
             />
           ))}
+          {markers.map((m) => {
+            const si = series.findIndex((s) => s.id === m.seriesId)
+            const i = periods.indexOf(m.period)
+            const v = si >= 0 && i >= 0 ? lookup[si].get(m.period) : null
+            if (v === null || v === undefined) return null
+            return (
+              <circle
+                key={`${m.seriesId}-${m.period}`}
+                cx={x(i)}
+                cy={y(v)}
+                r={6}
+                fill="var(--surface-1)"
+                stroke={m.color}
+                strokeWidth={2.5}
+              />
+            )
+          })}
           {hover !== null && (
             <g>
               <line x1={x(hover)} x2={x(hover)} y1={0} y2={innerH} stroke="var(--axis)" />
@@ -191,6 +217,16 @@ export function LineChart({ series, unit, grain, height = 260, label }: Props) {
               {series.length >= 2 && <span className="secondary">{s.name}</span>}
             </div>
           ))}
+          {markers
+            .filter((m) => m.period === hoverPeriod)
+            .map((m) => (
+              <div className="row" key={`m-${m.seriesId}`} style={{ marginTop: 4 }}>
+                <span aria-hidden="true" style={{ color: m.color }}>
+                  ●
+                </span>
+                <span>{m.label}</span>
+              </div>
+            ))}
         </div>
       )}
     </div>

@@ -94,3 +94,36 @@ Dataviz-Vorgaben: validierte Palette hell/dunkel, Crosshair-Tooltip, Tabellenans
 Alles wird aus Registry-Metadaten gerendert (Label, Einheit, Richtung, Dimensionen, Granularität,
 Datenherkunft); es gibt keinen KPI-spezifischen Code. Filter (Zeitraum, Dimension, KPI) stehen
 in der URL. Quotenänderungen werden in Prozentpunkten angezeigt.
+
+## Insights (Woche 3)
+
+Dagster-Assets nach den Marts: `insights/anomalies` → `insights/briefing` → `insights/dispatch`.
+
+- **Anomalieerkennung** (`analytics/anomaly.py`, `analytics/detect.py`): Methode laut Registry.
+  `stl_mad`: Wochentagseffekt aus STL (Median der letzten vier gleichen Wochentage), Niveau =
+  rollierender Median der saisonbereinigten Vortage (14 Tage, kausal), robuster Z-Score der
+  Abweichung gegen die Ein-Schritt-Fehler des Fensters. `threshold`: feste Grenze, monatlich auf
+  dem letzten vollständigen Monat. Überwacht werden die Gesamtreihe und die fünf größten
+  Mitglieder der `entity_type`-Dimension, bei Tageswerten nur für additive KPIs und mit
+  1,5-facher Schwelle. Kalibrierung und Messwerte: [anomaly-evaluation.md](anomaly-evaluation.md).
+- **Live-Messung inklusive Regionen/Kategorien** (Backfill 2017-10-01 bis 2018-01-11): 1,8 Alarme
+  pro KPI und Monat außerhalb der Black-Friday-Woche; 40 weitere Alarme in der Woche
+  24.–29.11.2017 sind echte Ereignisse.
+- **Outbox** `ops.insights`: ein `insight.v1` pro Befund, Idempotenz über `dedup_key`
+  (Typ, KPI, Entität, Periode). Backfill: `python -m analytics.detect --from … --to …`.
+- **Dispatcher** (`events/dispatch.py`): Empfänger aus `events/consumers.yaml`, Zustellstatus je
+  Insight und Empfänger in `ops.insight_deliveries`, Wiederholung mit Backoff (1, 2, 4, 8 min,
+  max. 5 Versuche), `FOR UPDATE SKIP LOCKED`. Das Alter (`max_age_days`) zählt in
+  Simulationszeit, damit ein Backfill keine Mail-Flut auslöst.
+- **E-Mail**: HTML + Text, Deep Link ins Dashboard. Lokal landet alles in Mailpit
+  (`http://127.0.0.1:8025`).
+- **AI-Analyst** (`llm/`): Eingabe sind nur berechnete, formatierte Werte mit IDs
+  (`llm/context.py`). Ausgabe strukturiert (Zusammenfassung, Befunde mit `evidence_ref`,
+  Handlungsvorschläge). Die Zahlen-Leitplanke (`llm/guardrail.py`) verwirft jeden Entwurf mit
+  Zahlen, Daten oder IDs, die nicht im Input stehen, und lässt bis zu dreimal neu erzeugen.
+  Provider MVP: Anthropic (`claude-opus-5-5`, Effort `medium`, Refusal-Fallback). Ohne
+  Zugangsdaten wird das Briefing übersprungen, Alerts laufen weiter.
+
+Neue API-Endpoints: `GET /api/v1/insights` (`since`, `type`, `severity` als Mindeststufe, `kpi`)
+und `GET /api/v1/briefings/latest`. Die Rolle `bis_api` darf zusätzlich `ops.insights` lesen,
+nicht aber das Zustellprotokoll.

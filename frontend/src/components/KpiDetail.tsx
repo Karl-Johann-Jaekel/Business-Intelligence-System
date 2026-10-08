@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
-import type { BreakdownResponse, Kpi, SeriesResponse, Window } from '../api'
+import { insightScope, type BreakdownResponse, type Insight, type Kpi, type SeriesResponse, type Window } from '../api'
 import { DeviationBars } from '../charts/DeviationBars'
-import { LineChart, type ChartSeries } from '../charts/LineChart'
+import { LineChart, type ChartMarker, type ChartSeries } from '../charts/LineChart'
 import { windowForGrain } from '../dates'
 import {
   DIMENSION_LABELS,
@@ -13,6 +13,7 @@ import {
 } from '../format'
 import { useApi } from '../useApi'
 import { assignSlots } from './colors'
+import { SEVERITY } from './severity'
 
 interface Props {
   kpi: Kpi
@@ -28,6 +29,7 @@ export function KpiDetail({ kpi, window, dimension }: Props) {
   const params = { from: w.start, to: w.end, dim }
   const series = useApi<SeriesResponse>(`/kpis/${kpi.key}/series`, params)
   const breakdown = useApi<BreakdownResponse>(`/kpis/${kpi.key}/breakdown`, params)
+  const insights = useApi<Insight[]>('/insights', { kpi: kpi.key, since: w.start, type: 'anomaly', limit: 500 })
   const [showTable, setShowTable] = useState(false)
   const [showAll, setShowAll] = useState(false)
 
@@ -48,6 +50,19 @@ export function KpiDetail({ kpi, window, dimension }: Props) {
         points: s.points,
       })),
     [items, slots.map, kpi.label],
+  )
+
+  // Anomalies of this KPI on the plotted series (same dimension), drawn as rings on the line.
+  const markers: ChartMarker[] = useMemo(
+    () =>
+      (insights.data ?? []).flatMap((insight) => {
+        const scope = insightScope(insight)
+        if (scope.dimension !== dimension) return []
+        const seriesId = scope.dimension === 'total' ? `kpi:${kpi.key}` : `${scope.dimension}:${scope.member}`
+        const sev = SEVERITY[insight.severity]
+        return [{ period: insight.period.start, seriesId, label: `${sev.icon} ${sev.label}: ${insight.summary}`, color: sev.color }]
+      }),
+    [insights.data, dimension, kpi.key],
   )
 
   const grainLabel = kpi.grain === 'month' ? 'Monat' : 'Tag'
@@ -90,6 +105,7 @@ export function KpiDetail({ kpi, window, dimension }: Props) {
           ) : (
             <LineChart
               series={chartSeries}
+              markers={markers}
               unit={kpi.unit}
               grain={kpi.grain}
               label={`${kpi.label}, Verlauf ${formatDate(w.start, kpi.grain)} bis ${formatDate(w.end, kpi.grain)}`}

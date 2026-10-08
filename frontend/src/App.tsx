@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { Health, Kpi, Window } from './api'
+import { BriefingPanel } from './components/BriefingPanel'
 import { FilterBar } from './components/FilterBar'
+import { InsightsPanel } from './components/InsightsPanel'
 import { KpiCard } from './components/KpiCard'
 import { KpiDetail } from './components/KpiDetail'
 import { PRESETS, presetWindow, readUrlState, writeUrlState } from './dates'
@@ -44,6 +46,11 @@ export default function App() {
     setPresetId(id)
     setCustom(null)
   }, [])
+  const onOpenInsight = useCallback((kpi: string, dim: string) => {
+    setSelectedKey(kpi)
+    setDimension(dim)
+    document.getElementById('detail-title')?.scrollIntoView({ behavior: 'smooth' })
+  }, [])
   const onCustom = useCallback((w: Window) => {
     setPresetId('custom')
     setCustom(w)
@@ -70,6 +77,7 @@ export default function App() {
 
       {window && simDate && selected && (
         <>
+          <BriefingPanel />
           <FilterBar
             presetId={presetId}
             onPreset={onPreset}
@@ -80,6 +88,7 @@ export default function App() {
             dimension={activeDimension}
             onDimension={setDimension}
           />
+          <InsightsPanel window={window} kpis={kpis} onOpen={onOpenInsight} />
           <section className="grid" aria-label="Kennzahlen">
             {kpis.map((kpi) => (
               <KpiCard

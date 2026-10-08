@@ -92,3 +92,37 @@ export async function getUrl<T>(url: string, signal?: AbortSignal): Promise<T> {
   }
   return body as T
 }
+
+export type Severity = 'info' | 'warning' | 'critical'
+
+/** insight.v1 (see docs/company-brain-interface.md); only the fields the dashboard uses. */
+export interface Insight {
+  insight_id: string
+  type: 'anomaly' | 'briefing' | 'forecast_deviation' | 'data_quality'
+  kpi: string | null
+  period: { start: string; end: string; grain: Grain }
+  severity: Severity
+  direction: 'up' | 'down' | null
+  observed: number | null
+  expected: number | null
+  deviation_pct: number | null
+  entity_refs: { type: string; id: string }[]
+  evidence: { method: string; score?: number | null; model?: string }
+  summary: string
+  created_at: string
+  details?: {
+    briefing?: {
+      summary: string
+      findings: { text: string; kpi: string; evidence_ref: string }[]
+      actions: string[]
+    }
+    attempts?: number
+  } | null
+}
+
+/** Dimension and member an insight refers to (ignores the kpi:<key> reference). */
+export function insightScope(insight: Insight): { dimension: string; member: string } {
+  const ref = insight.entity_refs.find((r) => r.type !== 'kpi')
+  if (!ref) return { dimension: 'total', member: 'all' }
+  return { dimension: ref.type, member: ref.id.slice(ref.id.indexOf(':') + 1) }
+}
