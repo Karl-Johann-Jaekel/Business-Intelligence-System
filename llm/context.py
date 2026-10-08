@@ -9,6 +9,7 @@ import psycopg
 
 from analytics.detect import latest_complete_month
 from analytics.text import format_signed_pct, format_value
+from llm.provider import highest_data_class
 from registry import Kpi
 
 WINDOW_DAYS = 7
@@ -112,21 +113,27 @@ def _monthly_kpi(conn, kpi: Kpi, sim_date: date) -> dict[str, Any] | None:
     }
 
 
-def _anomalies(conn, sim_date: date) -> list[dict[str, Any]]:
+def _anomalies(conn, sim_date: date, classes: list[str]) -> list[dict[str, Any]]:
     rows = conn.execute(
         """
-        SELECT insight_id, severity, payload->>'summary'
-        FROM ops.insights
-        WHERE type = 'anomaly' AND period_end BETWEEN %s AND %s
+        SELECT event_id, severity, payload->>'summary'
+        FROM ops.events
+        WHERE event_type = 'insight' AND type = 'anomaly' AND period_end BETWEEN %s AND %s
+          AND data_class = ANY(%s)
         ORDER BY CASE severity WHEN 'critical' THEN 0 ELSE 1 END, created_at
         LIMIT 20
         """,
-        (sim_date - timedelta(days=1), sim_date),
+        (sim_date - timedelta(days=1), sim_date, classes),
     ).fetchall()
     return [{"id": f"insight:{iid}", "severity": sev, "summary": text} for iid, sev, text in rows]
 
 
-def build(conn: psycopg.Connection, kpis: list[Kpi], sim_date: date) -> dict[str, Any]:
+def build(
+    conn: psycopg.Connection, kpis: list[Kpi], sim_date: date, allowed_classes: frozenset[str]
+) -> dict[str, Any]:
+    """Context limited to data the target provider may see; everything else is left out rather
+    than raising the prompt's data class."""
+    kpis = [k for k in kpis if k.data_class in allowed_classes]
     daily = [_daily_kpi(conn, k, sim_date) for k in kpis if k.grain == "day"]
     monthly = [m for k in kpis if k.grain == "month" if (m := _monthly_kpi(conn, k, sim_date))]
     return {
@@ -134,7 +141,8 @@ def build(conn: psycopg.Connection, kpis: list[Kpi], sim_date: date) -> dict[str
         "comparison": f"letzte {WINDOW_DAYS} Tage gegenüber den {WINDOW_DAYS} Tagen davor",
         "kpis": daily,
         "monthly_kpis": monthly,
-        "anomalies": _anomalies(conn, sim_date),
+        "anomalies": _anomalies(conn, sim_date, sorted(allowed_classes)),
+        "data_class": highest_data_class(k.data_class for k in kpis),
     }
 
 

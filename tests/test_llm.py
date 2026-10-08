@@ -6,7 +6,7 @@ from llm import briefing as briefing_mod
 from llm.briefing import Briefing, Finding, generate
 from llm.context import render
 from llm.guardrail import extract, unsupported_numbers
-from llm.provider import LLMError
+from llm.provider import AnthropicProvider, LLMError, LLMRoutingError, check_route, highest_data_class
 
 CONTEXT = {
     "date": "2018-01-08",
@@ -28,6 +28,7 @@ CONTEXT = {
     ],
     "monthly_kpis": [],
     "anomalies": [],
+    "data_class": "public",
 }
 
 
@@ -41,12 +42,15 @@ def _briefing(summary: str, ref: str = "kpi:gmv") -> Briefing:
 
 class ScriptedProvider:
     name, model = "fake", "fake-1"
+    allowed_data_classes = frozenset({"public"})
 
     def __init__(self, drafts: list[Briefing]):
         self.drafts = list(drafts)
         self.prompts: list[str] = []
+        self.data_classes: list[str] = []
 
-    def generate(self, system, user, schema):
+    def generate(self, system, user, schema, data_class):
+        self.data_classes.append(data_class)
         self.prompts.append(user)
         return self.drafts.pop(0)
 
@@ -97,10 +101,50 @@ def test_unknown_evidence_ref_is_rejected():
 def test_provider_error_skips_briefing(monkeypatch):
     class Failing:
         name, model = "fake", "fake-1"
+        allowed_data_classes = frozenset({"public"})
 
-        def generate(self, *args):
+        def generate(self, *args, **kwargs):
             raise LLMError("Anthropic credentials missing or invalid")
 
-    monkeypatch.setattr(briefing_mod.ctx, "build", lambda conn, kpis, d: CONTEXT)
+    monkeypatch.setattr(briefing_mod.ctx, "build", lambda conn, kpis, d, classes: CONTEXT)
     result = briefing_mod.run(conn=None, provider=Failing(), sim_date=date(2018, 1, 8))
     assert result == {"status": "skipped", "reason": "Anthropic credentials missing or invalid"}
+
+
+# --- routing by data class (plan section 8) --------------------------------------------------
+
+
+class ExplodingClient:
+    """Any attempt to call the external API fails the test."""
+
+    @property
+    def beta(self):
+        raise AssertionError("request reached the external provider")
+
+
+@pytest.mark.parametrize("data_class", ["confidential", "internal"])
+def test_external_provider_rejects_non_public_data_before_sending(data_class):
+    provider = AnthropicProvider(client=ExplodingClient())
+    with pytest.raises(LLMRoutingError, match=data_class):
+        provider.generate("s", "u", Briefing, data_class=data_class)
+
+
+def test_routing_error_is_not_a_soft_llm_error():
+    # briefing.run() swallows LLMError as "skipped"; a routing violation must surface instead.
+    assert not issubclass(LLMRoutingError, LLMError)
+
+
+def test_unknown_data_class_is_rejected():
+    with pytest.raises(LLMRoutingError):
+        check_route(ScriptedProvider([]), "secret")
+
+
+def test_briefing_passes_the_context_data_class():
+    provider = ScriptedProvider([_briefing("Umsatz +119,4 %.")])
+    generate(provider, CONTEXT)
+    assert provider.data_classes == ["public"]
+
+
+def test_highest_data_class():
+    assert highest_data_class(["public", "confidential", "internal"]) == "confidential"
+    assert highest_data_class([]) == "public"
