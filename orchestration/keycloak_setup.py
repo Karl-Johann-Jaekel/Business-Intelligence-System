@@ -17,6 +17,7 @@ API_SCOPES = ("read:kpi", "read:knowledge", "write:facts", "admin:review")
 # What the browser dashboard gets by default; the rest arrives with the knowledge layer (K1-K4).
 FRONTEND_DEFAULT_SCOPES = ("read:kpi",)
 FRONTEND_OPTIONAL_SCOPES = ("read:knowledge",)
+LOCAL_ORIGINS = "http://127.0.0.1:8103,http://127.0.0.1:5173"
 
 
 @dataclass
@@ -78,6 +79,15 @@ class KeycloakAdmin:
         if scope_id not in assigned:
             self.send("PUT", f"/clients/{client}/{kind}-client-scopes/{scope_id}")
 
+    def set_frontend_urls(self, client_id: str, origins: list[str]) -> None:
+        """Redirect URIs, web origins and logout targets exactly for the given origins."""
+        client = self.client_uuid(client_id)
+        rep = self.get(f"/clients/{client}")
+        rep["redirectUris"] = [f"{o}/*" for o in origins]
+        rep["webOrigins"] = list(origins)
+        rep.setdefault("attributes", {})["post.logout.redirect.uris"] = "##".join(f"{o}/*" for o in origins)
+        self.send("PUT", f"/clients/{client}", rep)
+
     def ensure_user(self, username: str, password: str) -> None:
         users = self.get("/users", username=username, exact="true")
         if not users:
@@ -106,17 +116,29 @@ def provision(base_url: str | None = None) -> list[str]:
     """Returns a log of what was ensured (names only, no secrets)."""
     from ingestion.config import require_secret
 
-    base_url = base_url or f"http://127.0.0.1:{os.getenv('BIS_KEYCLOAK_PORT', '8180')}"
+    base_url = (
+        base_url
+        or os.getenv("BIS_KEYCLOAK_URL")
+        or f"http://127.0.0.1:{os.getenv('BIS_KEYCLOAK_PORT', '8180')}"
+    )
     admin = KeycloakAdmin.login(base_url, require_secret("BIS_KEYCLOAK_ADMIN_PASSWORD"))
     scope_ids = {name: admin.ensure_scope(name) for name in API_SCOPES}
     for name in FRONTEND_DEFAULT_SCOPES:
         admin.assign_scope("bis-frontend", scope_ids[name], "default")
     for name in FRONTEND_OPTIONAL_SCOPES:
         admin.assign_scope("bis-frontend", scope_ids[name], "optional")
+    # Where the dashboard runs; locally both the container and the Vite dev server.
+    origins = [
+        o.strip().rstrip("/")
+        for o in os.getenv("BIS_FRONTEND_ORIGINS", LOCAL_ORIGINS).split(",")
+        if o.strip()
+    ]
+    admin.set_frontend_urls("bis-frontend", origins)
     user = os.getenv("BIS_DEMO_USER", "demo")
     admin.ensure_user(user, require_secret("BIS_DEMO_PASSWORD"))
     return [
         f"scopes: {', '.join(API_SCOPES)}",
         f"bis-frontend default: {', '.join(FRONTEND_DEFAULT_SCOPES)}",
+        f"bis-frontend origins: {', '.join(origins)}",
         f"user: {user}",
     ]

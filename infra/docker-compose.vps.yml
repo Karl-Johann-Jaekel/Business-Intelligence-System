@@ -1,0 +1,172 @@
+# Production stack on the VPS (plan section 13). Own compose project; only the dashboard and the
+# login are reachable from outside, through the existing reverse proxy on the external network
+# "web" (aliases bis-web, bis-auth). Dagster stays internal (SSH tunnel to 127.0.0.1:3070).
+#
+#   cd infra && docker compose -f docker-compose.vps.yml --env-file .env up -d --build
+#
+# All secrets and host names come from infra/.env (git-ignored, see infra/.env.example).
+# Memory limits keep the other services on the host safe.
+name: bis
+
+x-app-env: &app-env
+  BIS_PG_HOST: postgres
+  BIS_PG_PORT: "5432"
+  BIS_MARKETING_API_URL: http://mock-marketing-api:8000
+  BIS_KEYCLOAK_URL: http://keycloak:8080
+  BIS_FRONTEND_ORIGINS: https://${BIS_PUBLIC_HOST:?Set BIS_PUBLIC_HOST in infra/.env}
+  DAGSTER_HOME: /app/orchestration/dagster_home
+  BIS_ENV_FROM_COMPOSE: "true"
+  # One simulated day per night (plan: replay instead of real time). Webserver and daemon must
+  # load the same definitions, so the switch lives here and not only on the daemon.
+  BIS_SCHEDULE_ENABLED: "true"
+  BIS_SCHEDULE_CRON: ${BIS_SCHEDULE_CRON:-0 2 * * *}
+
+x-app: &app
+  build:
+    context: ..
+    dockerfile: infra/app.Dockerfile
+  image: bis-app
+  restart: unless-stopped
+  env_file: .env
+  environment:
+    <<: *app-env
+  volumes:
+    - data:/app/data
+    - dagster_home:/app/orchestration/dagster_home
+  depends_on:
+    postgres:
+      condition: service_healthy
+
+services:
+  postgres:
+    image: pgvector/pgvector:0.8.1-pg16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${BIS_PG_USER:-bis}
+      POSTGRES_PASSWORD: ${BIS_PG_PASSWORD:?Set BIS_PG_PASSWORD in infra/.env}
+      POSTGRES_DB: warehouse
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./postgres/init.sql:/docker-entrypoint-initdb.d/00-init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d warehouse"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    mem_limit: 1g
+
+  mock-marketing-api:
+    build: ../ingestion/mock_marketing_api
+    restart: unless-stopped
+    environment:
+      MARKETING_DATA_FILE: /data/synthetic/marketing_daily.csv
+    volumes:
+      - data:/data:ro
+    mem_limit: 128m
+
+  api:
+    build:
+      context: ..
+      dockerfile: api/Dockerfile
+    restart: unless-stopped
+    environment:
+      BIS_PG_HOST: postgres
+      BIS_PG_PORT: "5432"
+      BIS_API_DB_PASSWORD: ${BIS_API_DB_PASSWORD:?Set BIS_API_DB_PASSWORD in infra/.env}
+      BIS_AUTH_ENABLED: "true"
+      BIS_OIDC_ISSUER: https://${BIS_AUTH_HOST:?Set BIS_AUTH_HOST in infra/.env}/realms/bis
+      BIS_OIDC_JWKS_URL: http://keycloak:8080/realms/bis/protocol/openid-connect/certs
+      BIS_OIDC_AUDIENCE: bis-api
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v1/health')"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+    mem_limit: 384m
+
+  frontend:
+    build:
+      context: ../frontend
+      args:
+        VITE_OIDC_AUTHORITY: https://${BIS_AUTH_HOST}/realms/bis
+        VITE_OIDC_CLIENT_ID: bis-frontend
+    restart: unless-stopped
+    depends_on:
+      - api
+    networks:
+      default: {}
+      web:
+        aliases: [bis-web]
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+    mem_limit: 64m
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.4.0
+    restart: unless-stopped
+    command: ["start", "--import-realm"]
+    environment:
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://postgres:5432/keycloak
+      KC_DB_USERNAME: ${BIS_PG_USER:-bis}
+      KC_DB_PASSWORD: ${BIS_PG_PASSWORD}
+      KC_HOSTNAME: https://${BIS_AUTH_HOST}
+      # Internal callers (API key fetch, provisioning) use http://keycloak:8080.
+      KC_HOSTNAME_BACKCHANNEL_DYNAMIC: "true"
+      KC_HTTP_ENABLED: "true"
+      KC_PROXY_HEADERS: xforwarded
+      KC_HEALTH_ENABLED: "true"
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${BIS_KEYCLOAK_ADMIN_PASSWORD:?Set BIS_KEYCLOAK_ADMIN_PASSWORD in infra/.env}
+      JAVA_OPTS_KC_HEAP: -XX:MaxRAMPercentage=60
+    volumes:
+      - ./keycloak/realm-bis.json:/opt/keycloak/data/import/realm-bis.json:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      default: {}
+      web:
+        aliases: [bis-auth]
+    healthcheck:
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/127.0.0.1/9000 && printf 'GET /health/ready HTTP/1.0\\r\\n\\r\\n' >&3 && grep -q UP <&3"]
+      interval: 10s
+      timeout: 3s
+      retries: 60
+    mem_limit: 900m
+
+  dagster-webserver:
+    <<: *app
+    command: ["dagster-webserver", "-h", "0.0.0.0", "-p", "3000", "-m", "orchestration.definitions"]
+    ports:
+      - "127.0.0.1:${BIS_DAGSTER_PORT:-3070}:3000"
+    mem_limit: 768m
+
+  dagster-daemon:
+    <<: *app
+    command: ["dagster-daemon", "run", "-m", "orchestration.definitions"]
+    # Runs (ingestion, dbt, insights) execute inside the daemon container.
+    mem_limit: 2g
+
+  # One-off tasks: docker compose -f docker-compose.vps.yml run --rm app bis setup
+  app:
+    <<: *app
+    restart: "no"
+    profiles: [tools]
+    command: ["bis", "--help"]
+    mem_limit: 2g
+
+volumes:
+  pgdata:
+  data:
+  dagster_home:
+
+networks:
+  web:
+    external: true
