@@ -44,7 +44,7 @@ CREATE TABLE IF NOT EXISTS ops.clock_advances (
     advanced_at  timestamptz NOT NULL DEFAULT now()
 );
 
--- pgvector for the knowledge layer (K1); requires the pgvector image.
+-- pgvector for the knowledge layer (A4); requires the pgvector image.
 CREATE EXTENSION IF NOT EXISTS vector;
 
 -- Migration 2026-10-08 (plan v2): the outbox carries several event types (insight.v1,

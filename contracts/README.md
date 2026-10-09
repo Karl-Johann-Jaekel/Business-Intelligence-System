@@ -1,16 +1,16 @@
 # Contracts
 
 Source of truth for everything other systems consume from the Business-Intelligence-System
-(plan section 10). The Central-Intelligence-Agent pins a tagged version of this directory and
+(plan section 11). The Central-Intelligence-Agent pins a tagged version of this directory and
 validates against it in its CI.
 
 | Contract | File | Status |
 |---|---|---|
 | Entity namespace `<type>:<source key>` | [entity-namespace.v1.schema.json](entity-namespace.v1.schema.json) | draft |
 | `insight.v1` | [insight.v1.schema.json](insight.v1.schema.json) | **frozen** (M1, 2026-10-09; tag `contracts-insight.v1`) |
-| `decision.v1` | – | phase K3 |
-| `context.v1` | – | phase K3 |
-| `action.v1` | – | phase K4 |
+| `decision.v1` | – | phase A4 |
+| `context.v1` | – | phase A4 |
+| `action.v1` | – | phase A0 |
 
 Examples: [examples/](examples/). `tests/test_contracts.py` validates every example, the Python
 models that produce events, and live outbox payloads (when a local warehouse is available)

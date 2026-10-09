@@ -1,4 +1,4 @@
-# Production stack on the VPS (plan section 13). Own compose project; only the dashboard and the
+# Production stack on the VPS (plan section 14). Own compose project; only the dashboard and the
 # login are reachable from outside, through the existing reverse proxy on the external network
 # "web" (aliases bis-web, bis-auth). Dagster stays internal (SSH tunnel to 127.0.0.1:3070).
 #

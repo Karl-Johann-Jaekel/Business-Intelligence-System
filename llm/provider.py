@@ -2,7 +2,7 @@
 
 Every call states the data class of its prompt (the highest class of its parts). A provider
 refuses classes it is not cleared for: external providers get `public` only, `internal` needs an
-EU provider or a local model (phase 2), `confidential` only the local model (phase K1)."""
+EU provider or a local model, `confidential` only a local model (none on the VPS, so blocked there)."""
 
 import os
 from typing import Literal, Protocol, TypeVar

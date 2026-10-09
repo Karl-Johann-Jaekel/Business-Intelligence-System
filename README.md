@@ -1,12 +1,16 @@
 # Business-Intelligence-System
 
-End-to-end BI platform for data ingestion, ELT, KPI analytics and (from week 2) dashboards,
-anomaly detection and AI briefings. Reference domain: the public Olist e-commerce dataset,
-replayed day by day through a simulation clock.
+Agentic BI system for a simulated company: data ingestion, ELT, KPI analytics, dashboards,
+anomaly detection and AI briefings, and the foundation for a multi-agent layer: the separate
+Central-Intelligence-Agent prioritises issues and delegates investigations to department agents,
+while this system provides data, analysis tools and the single portal. Reference company: an
+online retailer whose sales are the public Olist e-commerce dataset, replayed day by day through
+a simulation clock; all other departments are simulated.
 
 Plan and decisions: [plan.md](plan.md) · Architecture: [docs/architecture.md](docs/architecture.md) ·
 KPI glossary: [docs/kpi-glossary.md](docs/kpi-glossary.md) ·
-Company Brain contract: [docs/company-brain-interface.md](docs/company-brain-interface.md)
+Company Brain contract: [docs/company-brain-interface.md](docs/company-brain-interface.md) ·
+Agent system plan: [docs/central-intelligence-agent-plan.md](docs/central-intelligence-agent-plan.md)
 
 ## Status
 
@@ -16,8 +20,13 @@ Company Brain contract: [docs/company-brain-interface.md](docs/company-brain-int
 | Week 2 – Pipeline & dashboard | Daily schedule with retries, asset checks, read-only FastAPI, React dashboard | done |
 | Week 3 – Insights | Anomaly detection (calibrated), outbox + dispatcher, email alerts, AI analyst with number guardrail | done |
 | Week 3 – Operations | Keycloak login (local), CI image builds, no secrets in the repo | done |
-| Week 3 – VPS deployment | Reverse-proxy route, Keycloak realm, subdomain | open (needs VPS details) |
-| K1–K4 – Knowledge layer | Plan v2; starts after milestone M1 | open |
+| Week 3 – VPS deployment | Reverse-proxy route, Keycloak realm, subdomains, MCP connector, backup | done (M1) |
+| A0 – Agent contracts | `daily_snapshot`, `task`, `finding`, `action`, `agent_metrics` schemas | next |
+| A1 – Access & portal | Guest mode (captcha), admin with MFA, Mistral provider | open |
+| A2 – Company simulation | Ten departments driven by a causal model, scenarios, cockpit | open |
+| A3 – Tool API & agents in the portal | Tool API, service accounts, agent pages, AI Ops department | open |
+| A4 – Knowledge as context | Corpus, search, extraction, graph, insight linking | open |
+| A5 – Admin tools | Admin MCP, fact write-back, contracts frozen | open |
 
 ## Quick start
 

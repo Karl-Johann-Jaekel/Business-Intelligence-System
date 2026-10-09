@@ -2,7 +2,7 @@
 
 > Maßgeblich sind die Schemas in [contracts/](../contracts/README.md); dieses Dokument erklärt sie.
 
-Stand: 2026-10-09 · Status: **`insight.v1` eingefroren** (M1); `decision.v1`, `context.v1`, `action.v1` folgen in K3/K4.
+Stand: 2026-10-09 · Status: **`insight.v1` eingefroren** (M1); `decision.v1`, `context.v1`, `action.v1` `daily_snapshot.v1`, `task.v1`, `finding.v1`, `action.v1`, `agent_metrics.v1` folgen in A0, `decision.v1` und `context.v1` in A4.
 
 Dieses Dokument beschreibt den Vertrag zwischen dem Business-Intelligence-System (BIS) und
 späteren Konsumenten (Hive Mind, Central-Intelligence-Agent). Das BIS ist das quantitative

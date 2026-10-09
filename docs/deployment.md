@@ -66,7 +66,7 @@ und `caddy reload`.
 ## Backup
 
 `infra/backup.sh` sichert täglich um 03:30 (Cron des Server-Nutzers) die Schemas `ops` und
-`marts` (ab K1 auch `knowledge`) sowie die Keycloak-Datenbank nach `~/backups/bis`, 14 Tage.
+`marts` (ab A3 auch `agents`, ab A4 `knowledge`) sowie die Keycloak-Datenbank nach `~/backups/bis`, 14 Tage.
 `infra/backup-verify.sh` spielt die neueste Sicherung in eine Wegwerf-Datenbank ein und prüft
 die Kerntabellen; zuletzt erfolgreich am 2026-10-09.
 

@@ -18,7 +18,7 @@ from registry import Kpi, load_registry
 
 app = FastAPI(title="Business-Intelligence-System API", version="1.0")
 
-# Scopes per endpoint (plan section 9); /health stays open for probes.
+# Scopes per endpoint (plan section 10); /health stays open for probes.
 READ_KPI = Depends(require_scope("read:kpi"))
 
 

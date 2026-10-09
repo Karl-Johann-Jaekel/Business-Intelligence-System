@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/Karl-Johann-Jaekel/Business-Intelligence-System/contracts/entity-namespace.v1.schema.json",
   "title": "Entity namespace v1",
-  "description": "Shared entity IDs '<type>:<source key>'. Numbers-side IDs come straight from the KPI registry and the dimensions; knowledge-side IDs from the graph (phase K2).",
+  "description": "Shared entity IDs '<type>:<source key>'. Numbers-side IDs come straight from the KPI registry and the dimensions; knowledge-side IDs from the graph (phase A4).",
   "$defs": {
     "kpi": {"type": "string", "pattern": "^kpi:[a-z][a-z0-9_]*$", "description": "KPI registry key"},
     "region": {"type": "string", "pattern": "^region:[A-Z]{2}$", "description": "Brazilian federal state code"},
