@@ -14,7 +14,7 @@ import httpx
 REALM = "bis"
 # Permission scopes of the API (plan section 9).
 API_SCOPES = ("read:kpi", "read:knowledge", "write:facts", "admin:review")
-# What the browser dashboard gets by default; the rest arrives with the knowledge layer (K1-K4).
+# What the browser dashboard gets by default; the rest arrives in phases A1-A5.
 FRONTEND_DEFAULT_SCOPES = ("read:kpi",)
 FRONTEND_OPTIONAL_SCOPES = ("read:knowledge",)
 LOCAL_ORIGINS = "http://127.0.0.1:8103,http://127.0.0.1:5173"

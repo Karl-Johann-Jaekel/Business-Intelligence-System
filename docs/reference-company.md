@@ -6,7 +6,7 @@ Olist-Daten, ihr Organisationswissen ist synthetisch. **Alle Personen sind erfun
 ## Personen
 
 Entitäts-ID nach dem Namensraum in [contracts/entity-namespace.v1.schema.json](../contracts/entity-namespace.v1.schema.json).
-Die KPI-Registry verweist über `owner` auf diese IDs; der Korpus-Generator (Phase K1) erzeugt
+Die KPI-Registry verweist über `owner` auf diese IDs; der Korpus-Generator (Phase A4) erzeugt
 Meetings, Entscheidungen und Kommunikation mit genau diesen Personen.
 
 | Entitäts-ID | Rolle | Verantwortet (Registry) |
@@ -17,5 +17,5 @@ Meetings, Entscheidungen und Kommunikation mit genau diesen Personen.
 | `person:leitung-marketing` | Leitung Marketing | Neukunden, Wiederkäufer, Conversion Rate, ROAS |
 | `person:leitung-finanzen` | Leitung Finanzen | Budgetabweichung |
 
-Weitere Personen (Teammitglieder, Geschäftsführung) ergänzt Phase K1 hier, zusammen mit dem
+Weitere Personen (Teammitglieder, Geschäftsführung) ergänzt Phase A2 hier, zusammen mit dem
 Seed des Generators.

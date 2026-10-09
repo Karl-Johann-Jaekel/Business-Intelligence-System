@@ -54,7 +54,7 @@ class Insight(BaseModel):
     deviation_pct: float | None = None
     entity_refs: list[EntityRef] = []
     evidence: Evidence
-    # Link to the context package (/api/v1/context, phase K3); None until the knowledge layer exists.
+    # Link to the context package (/api/v1/context, phase A4); None until the knowledge layer exists.
     context_ref: str | None = None
     summary: str
     data_class: Literal["public", "internal", "confidential"]

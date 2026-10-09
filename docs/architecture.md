@@ -110,7 +110,7 @@ Dagster-Assets nach den Marts: `insights/anomalies` → `insights/briefing` → 
   pro KPI und Monat außerhalb der Black-Friday-Woche; 40 weitere Alarme in der Woche
   24.–29.11.2017 sind echte Ereignisse.
 - **Outbox** `ops.events` (bis 2026-10-08 `ops.insights`, migriert in `ensure_ops_schema`): ein
-  Event pro Befund (`event_type` `insight`, ab K3 auch `decision`), Idempotenz über `dedup_key`
+  Event pro Befund (`event_type` `insight`, ab A4 auch `decision`), Idempotenz über `dedup_key`
   (Typ, KPI, Entität, Periode). Backfill: `python -m analytics.detect --from … --to …`.
 - **Dispatcher** (`events/dispatch.py`): Empfänger aus `events/consumers.yaml`, Zustellstatus je
   Event und Empfänger in `ops.event_deliveries`, Wiederholung mit Backoff (1, 2, 4, 8 min,
@@ -137,7 +137,7 @@ nicht aber das Zustellprotokoll.
 - **Verträge:** [contracts/](../contracts/README.md) ist die Quelle der Wahrheit für `insight.v1`
   und den Entitäts-Namensraum. `tests/test_contracts.py` prüft Beispiele, das Pydantic-Modell
   (Felder deckungsgleich) und echte Outbox-Payloads sowie Entitäts-IDs aus den Dimensionen.
-  Neu in `insight.v1`: optionales `context_ref` (K3).
+  Neu in `insight.v1`: optionales `context_ref` (A4).
 - **Datenklassen:** Jeder Empfänger hat `max_data_class` (E-Mail: `internal`), das Event trägt
   `data_class` als Spalte. Die LLM-Schicht erzwingt Plan §8: jeder Aufruf nennt seine
   Datenklasse, ein externer Provider lehnt alles über `public` mit `LLMRoutingError` ab, bevor
@@ -152,7 +152,7 @@ nicht aber das Zustellprotokoll.
 |---|---|
 | Realm | `bis`, Datei [infra/keycloak/realm-bis.json](../infra/keycloak/realm-bis.json) (Clients) |
 | Clients | `bis-frontend` (public, Authorization Code + PKCE, Audience-Mapper auf `bis-api`), `bis-api` (bearer-only) |
-| Scopes | `read:kpi`, `read:knowledge`, `write:facts`, `admin:review` (Plan §9); Dashboard: `read:kpi` |
+| Scopes | `read:kpi`, `read:knowledge`, `write:facts`, `admin:review` (Plan §9/§10); Dashboard: `read:kpi` |
 | Einrichtung | `orchestration/keycloak_setup.py` über die Admin-API, idempotent, aus `bis setup` |
 | API | `api/auth.py`: Signatur (JWKS), Issuer, Audience, Ablauf, Scope pro Endpoint; 401/403 mit `WWW-Authenticate` |
 | Frontend | `oidc-client-ts`, Token im `sessionStorage`, bei 401 neuer Login |

@@ -1,4 +1,4 @@
-"""OIDC bearer-token authentication (Keycloak realm `bis`) and per-endpoint scopes (plan section 9).
+"""OIDC bearer-token authentication (Keycloak realm `bis`) and per-endpoint scopes (plan section 10).
 
 The API trusts only tokens that are signed by the realm (JWKS), issued by the configured issuer,
 addressed to the audience `bis-api`, and unexpired. Each endpoint names the scope it needs.
