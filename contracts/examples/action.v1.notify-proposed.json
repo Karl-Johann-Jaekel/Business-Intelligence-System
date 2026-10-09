@@ -1,0 +1,32 @@
+{
+  "schema_version": "action.v1",
+  "action_id": "4c3b2a1f-0e9d-4c8b-a7f6-5e4d3c2b1a09",
+  "run_id": "3b0e8c1a-5d2f-4e6a-9c7b-1f2e3d4c5b6a",
+  "trigger": {
+    "kind": "insight",
+    "id": "6f1c2d5e-0b7a-4c3e-9a1f-2d4b6c8e0a12"
+  },
+  "type": "notify_admin",
+  "target": "email.admin",
+  "payload": {
+    "subject": "Supply rot: Lieferzeit SP +45 %",
+    "body": "Lagebericht 10.01.2018: Supply ist rot. Details im Portal."
+  },
+  "rationale": "Bereich Supply wechselt auf rot; der Admin wird informiert.",
+  "evidence": [
+    {
+      "kind": "insight",
+      "id": "6f1c2d5e-0b7a-4c3e-9a1f-2d4b6c8e0a12"
+    }
+  ],
+  "autonomy_level": "L1",
+  "risk": "low",
+  "status": "proposed",
+  "approved_by": null,
+  "approved_at": null,
+  "executed_at": null,
+  "result_ref": null,
+  "error": null,
+  "data_class": "public",
+  "created_at": "2026-10-10T02:12:03Z"
+}

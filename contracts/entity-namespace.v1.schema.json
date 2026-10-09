@@ -15,6 +15,7 @@
     "decision": {"type": "string", "pattern": "^decision:[a-z0-9]+(-[a-z0-9]+)*$"},
     "meeting": {"type": "string", "pattern": "^meeting:[a-z0-9]+(-[a-z0-9]+)*$"},
     "topic": {"type": "string", "pattern": "^topic:[a-z0-9]+(-[a-z0-9]+)*$"},
+    "department": {"type": "string", "pattern": "^department:(marketing|sales|finance|customer|supply|operations|hr|projects|it|management|ai_ops)$", "description": "Business area (common.v1 department)"},
     "insight": {"type": "string", "pattern": "^insight:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"},
     "entity_id": {
       "anyOf": [
@@ -29,7 +30,8 @@
         {"$ref": "#/$defs/decision"},
         {"$ref": "#/$defs/meeting"},
         {"$ref": "#/$defs/topic"},
-        {"$ref": "#/$defs/insight"}
+        {"$ref": "#/$defs/insight"},
+        {"$ref": "#/$defs/department"}
       ]
     },
     "entity_ref": {
@@ -37,7 +39,7 @@
       "required": ["type", "id"],
       "additionalProperties": false,
       "properties": {
-        "type": {"enum": ["kpi", "region", "category", "product", "customer", "seller", "person", "team", "decision", "meeting", "topic", "insight"]},
+        "type": {"enum": ["kpi", "region", "category", "product", "customer", "seller", "person", "team", "decision", "meeting", "topic", "insight", "department"]},
         "id": {"$ref": "#/$defs/entity_id"}
       }
     }

@@ -1,0 +1,37 @@
+{
+  "schema_version": "agent_metrics.v1",
+  "source": "central-intelligence-agent",
+  "sim_date": "2018-01-10",
+  "role": "department",
+  "department": "supply",
+  "metrics": {
+    "runs": 0,
+    "tasks_started": 1,
+    "tasks_completed": 1,
+    "tasks_failed": 0,
+    "error_rate": 0.0,
+    "tokens_in": 18342,
+    "tokens_out": 1270,
+    "cost_eur": 0.0,
+    "latency_p50_s": 93.4,
+    "latency_p95_s": 93.4,
+    "delegation_depth_avg": 1.0,
+    "delegation_depth_max": 1,
+    "spawns_requested": 1,
+    "spawns_rejected": {
+      "permission": 0,
+      "depth": 0,
+      "breadth": 0,
+      "budget": 0,
+      "duplicate": 0,
+      "cycle": 0
+    },
+    "budget_exceeded": 0,
+    "tasks_open_overdue": 0,
+    "guardrail_violations": 0,
+    "false_findings": null,
+    "missed_scenarios": null
+  },
+  "data_class": "public",
+  "generated_at": "2026-10-10T03:00:00Z"
+}

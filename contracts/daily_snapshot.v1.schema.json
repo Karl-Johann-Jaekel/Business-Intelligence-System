@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Karl-Johann-Jaekel/Business-Intelligence-System/contracts/daily_snapshot.v1.schema.json",
+  "title": "daily_snapshot.v1",
+  "description": "End of a simulated day in the Business-Intelligence-System: status per department and open insights. Trigger for the nightly run of the central agent. Status: draft (A0).",
+  "type": "object",
+  "required": ["schema_version", "snapshot_id", "source", "sim_date", "pipeline", "departments", "open_insight_ids", "data_class", "created_at"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {"const": "daily_snapshot.v1"},
+    "snapshot_id": {"$ref": "common.v1.schema.json#/$defs/uuid", "description": "Idempotency key"},
+    "source": {"const": "business-intelligence-system"},
+    "sim_date": {"type": "string", "format": "date"},
+    "pipeline": {
+      "type": "object",
+      "required": ["data_current", "last_successful_load_at"],
+      "additionalProperties": false,
+      "properties": {
+        "data_current": {"type": "boolean", "description": "KPIs are computed up to sim_date"},
+        "last_successful_load_at": {"type": ["string", "null"], "format": "date-time"}
+      }
+    },
+    "departments": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["department", "status", "kpis", "open_insights"],
+        "additionalProperties": false,
+        "properties": {
+          "department": {"$ref": "common.v1.schema.json#/$defs/department"},
+          "status": {"$ref": "common.v1.schema.json#/$defs/status_light"},
+          "score": {"type": ["number", "null"], "minimum": 0, "maximum": 1, "description": "0 = all KPIs on target, 1 = all critical"},
+          "owner": {"anyOf": [{"$ref": "entity-namespace.v1.schema.json#/$defs/person"}, {"type": "null"}]},
+          "open_insights": {"type": "integer", "minimum": 0},
+          "kpis": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["kpi", "value", "status"],
+              "additionalProperties": false,
+              "properties": {
+                "kpi": {"$ref": "common.v1.schema.json#/$defs/kpi_key"},
+                "value": {"type": ["number", "null"]},
+                "target": {"type": ["number", "null"]},
+                "trend_pct": {"type": ["number", "null"], "description": "Change against the previous 28 days, in percent"},
+                "status": {"$ref": "common.v1.schema.json#/$defs/status_light"}
+              }
+            }
+          }
+        }
+      }
+    },
+    "open_insight_ids": {"type": "array", "items": {"$ref": "common.v1.schema.json#/$defs/uuid"}},
+    "data_class": {"$ref": "common.v1.schema.json#/$defs/data_class"},
+    "created_at": {"type": "string", "format": "date-time"}
+  }
+}

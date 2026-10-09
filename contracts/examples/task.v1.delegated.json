@@ -1,0 +1,57 @@
+{
+  "schema_version": "task.v1",
+  "run_id": "3b0e8c1a-5d2f-4e6a-9c7b-1f2e3d4c5b6a",
+  "output_schema": "finding.v1",
+  "data_class": "public",
+  "task_id": "9a1b2c3d-4e5f-4a6b-8c7d-0e1f2a3b4c5d",
+  "parent_task_id": null,
+  "depth": 1,
+  "requested_by": {
+    "kind": "central",
+    "department": null
+  },
+  "department": "supply",
+  "objective": "Warum ist die Ø Lieferzeit in SP seit dem 02.01.2018 um über 40 % gestiegen, und welche Bereiche sind betroffen?",
+  "refs": {
+    "insight_ids": [
+      "6f1c2d5e-0b7a-4c3e-9a1f-2d4b6c8e0a12",
+      "0a9b8c7d-6e5f-4a3b-9c2d-1e0f9a8b7c6d"
+    ],
+    "kpis": [
+      "delivery_time_avg_days",
+      "on_time_rate"
+    ],
+    "entities": [
+      {
+        "type": "region",
+        "id": "region:SP"
+      },
+      {
+        "type": "department",
+        "id": "department:supply"
+      }
+    ],
+    "period": {
+      "start": "2017-12-01",
+      "end": "2018-01-10"
+    }
+  },
+  "allowed_tools": [
+    "bi.series",
+    "bi.breakdown",
+    "bi.drivers",
+    "bi.insights",
+    "agents.request_spawn",
+    "actions.propose"
+  ],
+  "budget": {
+    "max_steps": 12,
+    "max_tokens": 40000,
+    "max_cost_eur": 0.05
+  },
+  "due": "2018-01-11",
+  "status": "completed",
+  "status_reason": null,
+  "created_at": "2026-10-10T02:10:15Z",
+  "completed_at": "2026-10-10T02:11:48Z"
+}

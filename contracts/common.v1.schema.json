@@ -1,0 +1,63 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Karl-Johann-Jaekel/Business-Intelligence-System/contracts/common.v1.schema.json",
+  "title": "Common definitions v1",
+  "description": "Building blocks shared by the agent contracts (daily_snapshot, task, finding, action, agent_metrics). Status: draft (A0).",
+  "$defs": {
+    "uuid": {"type": "string", "format": "uuid"},
+    "data_class": {"enum": ["public", "internal", "confidential"]},
+    "department": {
+      "enum": ["marketing", "sales", "finance", "customer", "supply", "operations", "hr", "projects", "it", "management", "ai_ops"],
+      "description": "Business area of the reference company (plan section 4)"
+    },
+    "kpi_key": {"type": "string", "pattern": "^[a-z][a-z0-9_]*$", "description": "KPI registry key without prefix"},
+    "status_light": {"enum": ["green", "yellow", "red", "grey"], "description": "grey = no data or no target"},
+    "tool": {"type": "string", "pattern": "^(bi|agents|actions)\\.[a-z][a-z0-9_]*$", "description": "Tool name, e.g. bi.series, agents.request_spawn"},
+    "risk": {"enum": ["low", "medium", "high"]},
+    "evidence_ref": {
+      "description": "Where a statement can be checked. Every finding and action points to at least one.",
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["kind", "ref"],
+          "additionalProperties": false,
+          "properties": {
+            "kind": {"const": "query"},
+            "ref": {"type": "string", "pattern": "^/api/v1/", "description": "BI API path that reproduces the numbers"}
+          }
+        },
+        {
+          "type": "object",
+          "required": ["kind", "id"],
+          "additionalProperties": false,
+          "properties": {
+            "kind": {"enum": ["insight", "finding", "task", "action"]},
+            "id": {"$ref": "#/$defs/uuid"}
+          }
+        },
+        {
+          "type": "object",
+          "required": ["kind", "document_id", "chunk_id"],
+          "additionalProperties": false,
+          "properties": {
+            "kind": {"const": "chunk"},
+            "document_id": {"type": "string", "minLength": 1},
+            "chunk_id": {"type": "string", "minLength": 1}
+          }
+        }
+      ]
+    },
+    "usage": {
+      "type": "object",
+      "required": ["tokens_in", "tokens_out", "cost_eur", "duration_s"],
+      "additionalProperties": false,
+      "properties": {
+        "tokens_in": {"type": "integer", "minimum": 0},
+        "tokens_out": {"type": "integer", "minimum": 0},
+        "cost_eur": {"type": "number", "minimum": 0},
+        "duration_s": {"type": "number", "minimum": 0},
+        "model": {"type": ["string", "null"]}
+      }
+    }
+  }
+}

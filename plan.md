@@ -302,7 +302,7 @@ Zeitangaben in Vollzeit-Wochen, bei Teilzeit strecken. Jede Phase endet mit Depl
 
 Pipeline, Registry, Dashboard, Anomalieerkennung, Outbox und E-Mail, Briefing mit Zahlen-Leitplanke, Keycloak, VPS-Deployment, MCP-Connector (nur `public`), tägliches Backup mit geprüftem Restore, `insight.v1` eingefroren.
 
-### A0 – Verträge für das Agentensystem (2–3 Tage)
+### A0 – Verträge für das Agentensystem (2–3 Tage) – erledigt 2026-10-09
 
 - `daily_snapshot.v1`, `task.v1`, `finding.v1`, `action.v1`, `agent_metrics.v1` als JSON Schema mit Beispielen und Vertragstests
 - Tag `contracts-v3-draft` für den Start des CIA
