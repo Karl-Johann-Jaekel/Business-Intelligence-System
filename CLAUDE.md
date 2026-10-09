@@ -33,7 +33,9 @@ Plan: `plan.md`. Architektur: `docs/architecture.md`. Python 3.13 venv in `.venv
   `infra/.env.example`, `bis setup` ergänzt `infra/.env`. Deren Inhalt nie ausgeben.
 - LLM-Aufrufe immer mit `data_class`; externer Provider nur `public` (`LLMRoutingError`).
 - Event-Formate ändern = `contracts/` zuerst, `tests/test_contracts.py` muss grün bleiben.
-- MCP: nur `public`-Daten; nginx muss `Host $http_host` (mit Port) weiterreichen, sonst 421.
+- MCP: nur `public`-Daten (Admin-Token: bis `internal`); nginx muss `Host $http_host` (mit Port) weiterreichen, sonst 421.
+- Gäste sehen nur `public`. Turnstile-Test-Secrets nur lokal (`BIS_GUEST_ALLOW_TEST_KEYS=true`), sonst bleibt der Gastmodus aus.
+- Admin-MFA hängt am Realm-Flow `browser-bis`; Admin-Scopes nur mit Rolle `bis-admin`. Keycloak-Nutzer brauchen eine E-Mail, sonst fragt der Login danach.
 - Python-Cookiejar schickt keine Cookies an `127.0.0.1` zurück (Keycloak-Tests: Header setzen).
 - Schwellen in der Registry nur mit `analytics.evaluate` ändern (Bericht in docs/ committen).
 - SQL-Kommentare in psycopg-Strings: kein `%` (wird als Platzhalter gelesen).

@@ -52,6 +52,7 @@ und `caddy reload`.
 | Status | `docker compose -f docker-compose.vps.yml --env-file .env ps` |
 | Dagster-Oberfläche | lokal: `ssh -L 3070:127.0.0.1:3070 <user>@<server>`, dann `http://127.0.0.1:3070` |
 | Demo-Passwort | `BIS_DEMO_PASSWORD` in `infra/.env` (nur auf dem Server lesen) |
+| Admin-Startpasswort | `BIS_ADMIN_INITIAL_PASSWORD` in `infra/.env`; gilt nur bis zum ersten Login (dann neues Passwort und OTP) |
 | Update | Code aktualisieren, `build`, `up -d`; bei dbt-Änderungen läuft `dbt parse` im Image-Build |
 | Stoppen | `docker compose -f docker-compose.vps.yml --env-file .env stop` (Daten bleiben) |
 
@@ -63,6 +64,25 @@ und `caddy reload`.
    *Advanced settings* Client-ID und Secret.
 3. Beim Verbinden öffnet sich der Keycloak-Login (Realm `bis`).
 
+## Gastzugang und Mistral einschalten (A1)
+
+1. Cloudflare-Dashboard → Turnstile → *Add widget*: Hostname = öffentlicher Host, Modus *Managed*,
+   Pre-Clearance *No*. Site-Key und Secret notieren.
+2. In `infra/.env` (nur auf dem Server):
+   ```
+   BIS_GUEST_ENABLED=true
+   BIS_TURNSTILE_SITE_KEY=<Site-Key>
+   BIS_TURNSTILE_SECRET_KEY=<Secret>
+   BIS_LLM_PROVIDER=mistral
+   BIS_MISTRAL_API_KEY=<Schlüssel>
+   ```
+   `BIS_GUEST_TOKEN_SECRET` und `BIS_ADMIN_INITIAL_PASSWORD` ergänzt
+   `python3 -c "from ingestion.config import ensure_env_file; ensure_env_file()"` (im Repo-Verzeichnis).
+3. `build`, `up -d`, dann `run --rm app bis setup` (Schema `ops.llm_usage`, Rechte, Admin-Rolle,
+   OTP-Flow, Admin-Nutzer).
+4. Prüfen: `/api/v1/guest/config` liefert `enabled: true`; ohne Turnstile gibt es kein Gast-Token.
+   Test-Secrets von Cloudflare werden auf dem Server abgelehnt (Gastmodus bleibt aus).
+
 ## Backup
 
 `infra/backup.sh` sichert täglich um 03:30 (Cron des Server-Nutzers) die Schemas `ops` und
@@ -72,5 +92,5 @@ die Kerntabellen; zuletzt erfolgreich am 2026-10-09.
 
 ## Offen
 
-- SMTP-Anbieter für Alerts, LLM-Zugang für das Briefing
+- SMTP-Anbieter für Alerts
 - Uptime-Kuma-Monitore für Dashboard und Login

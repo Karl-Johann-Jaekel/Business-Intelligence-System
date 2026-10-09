@@ -78,6 +78,14 @@ services:
       BIS_OIDC_ISSUER: https://${BIS_AUTH_HOST:?Set BIS_AUTH_HOST in infra/.env}/realms/bis
       BIS_OIDC_JWKS_URL: http://keycloak:8080/realms/bis/protocol/openid-connect/certs
       BIS_OIDC_AUDIENCE: bis-api
+      # Guest access: stays off until real Turnstile keys and the signing secret are in infra/.env
+      # (Cloudflare test keys are refused here).
+      BIS_GUEST_ENABLED: ${BIS_GUEST_ENABLED:-false}
+      BIS_GUEST_TOKEN_SECRET: ${BIS_GUEST_TOKEN_SECRET:-}
+      BIS_TURNSTILE_SITE_KEY: ${BIS_TURNSTILE_SITE_KEY:-}
+      BIS_TURNSTILE_SECRET_KEY: ${BIS_TURNSTILE_SECRET_KEY:-}
+    # Client address for the guest rate limit: Caddy sets X-Forwarded-For, nginx appends.
+    command: ["uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers", "--forwarded-allow-ips", "*"]
     depends_on:
       postgres:
         condition: service_healthy

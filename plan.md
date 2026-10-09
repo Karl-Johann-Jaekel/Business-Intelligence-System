@@ -154,7 +154,7 @@ Der Korpus-Generator (Deutsch, vorlagenbasiert, fester Seed) leitet Meetings und
 
 ### Zugang (Schema `ops`)
 
-- `guest_sessions`: Token-ID, Zeitpunkt, gekürzter IP-Hash, Ablauf
+- Gastzugänge werden nicht gespeichert: Rate-Limit nur im Speicher der API (gehashte IP)
 - `llm_usage`: Aufrufe, Tokens und Kosten der BI-eigenen LLM-Nutzung (Briefing, Extraktion)
 
 ## 6. KPI-Registry
@@ -309,10 +309,10 @@ Pipeline, Registry, Dashboard, Anomalieerkennung, Outbox und E-Mail, Briefing mi
 
 **DoD:** Alle Beispiele validieren, ein absichtlich gebrochenes Payload lässt den Test fehlschlagen. Der CIA kann die getaggte Version einbinden.
 
-### A1 – Zugang und Portal (ca. 1 Woche)
+### A1 – Zugang und Portal (ca. 1 Woche) – gebaut 2026-10-09, Deploy offen
 
 - Startseite; „Als Gast fortfahren“ mit Turnstile; Gast-Token (RS256, JWKS) und Rollen in der API
-- Admin-Rolle mit Pflicht-MFA; Admin-Bereich im Frontend (vorerst: Simulation vorspulen, Kosten)
+- Admin-Rolle mit Pflicht-MFA; Admin-Bereich im Frontend (vorerst: Kosten und Gastzugänge; Simulation vorspulen kommt mit A2, weil es Dagster-Läufe auslöst)
 - Mistral-Provider in der LLM-Schicht, `ops.llm_usage`; Briefing läuft live
 - MCP: Rechte nach Token-Rolle; Admin-Connector sieht `internal`
 
@@ -393,7 +393,7 @@ Zweite Domäne mit eigenem Treibermodell, Registry und Korpus. **DoD:** kein Com
 
 ## 15. Datenschutz
 
-- Im Portfolio-Betrieb nur synthetische Personen und Inhalte; Gäste hinterlassen keine Konten, nur gekürzte IP-Hashes für das Rate-Limit (Aufbewahrung 7 Tage).
+- Im Portfolio-Betrieb nur synthetische Personen und Inhalte; Gäste hinterlassen keine Konten. Das Rate-Limit arbeitet mit gehashten IPs nur im Speicher; Server- und Proxy-Logs bleiben die einzige Spur.
 - Gastfragen werden mit Antwort für Kontingent und Missbrauchsprüfung gespeichert (30 Tage); die Startseite weist darauf hin.
 - Turnstile und Mistral in der Datenschutzerklärung der Portfolioseite nennen.
 - Für echte Daten gilt weiter: Rechtsgrundlage, Zweckbindung, Beschäftigtendatenschutz vorab klären; nicht Teil dieses Plans.
