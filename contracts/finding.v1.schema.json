@@ -1,0 +1,84 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Karl-Johann-Jaekel/Business-Intelligence-System/contracts/finding.v1.schema.json",
+  "title": "finding.v1",
+  "description": "Result of a task.v1: evidence-backed statements, cause hypotheses with confidence, recommended actions and open questions. 'No cause found' is a valid result. Status: draft (A0).",
+  "type": "object",
+  "required": ["schema_version", "finding_id", "task_id", "run_id", "department", "summary", "statements", "hypotheses", "recommended_actions", "open_questions", "no_cause_found", "usage", "data_class", "created_at"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {"const": "finding.v1"},
+    "finding_id": {"$ref": "common.v1.schema.json#/$defs/uuid"},
+    "task_id": {"$ref": "common.v1.schema.json#/$defs/uuid"},
+    "run_id": {"$ref": "common.v1.schema.json#/$defs/uuid"},
+    "department": {"$ref": "common.v1.schema.json#/$defs/department"},
+    "summary": {"type": "string", "minLength": 1, "maxLength": 2000},
+    "statements": {
+      "type": "array",
+      "description": "Observed facts. Every number in a statement must appear in a tool result (number guardrail).",
+      "items": {
+        "type": "object",
+        "required": ["text", "evidence"],
+        "additionalProperties": false,
+        "properties": {
+          "text": {"type": "string", "minLength": 1},
+          "numbers": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["value"],
+              "additionalProperties": false,
+              "properties": {
+                "value": {"type": "number"},
+                "unit": {"type": ["string", "null"]},
+                "kpi": {"anyOf": [{"$ref": "common.v1.schema.json#/$defs/kpi_key"}, {"type": "null"}]}
+              }
+            }
+          },
+          "evidence": {"type": "array", "minItems": 1, "items": {"$ref": "common.v1.schema.json#/$defs/evidence_ref"}}
+        }
+      }
+    },
+    "hypotheses": {
+      "type": "array",
+      "description": "Possible causes. Never presented as established fact.",
+      "items": {
+        "type": "object",
+        "required": ["text", "confidence", "status", "evidence"],
+        "additionalProperties": false,
+        "properties": {
+          "text": {"type": "string", "minLength": 1},
+          "confidence": {"type": "number", "minimum": 0, "maximum": 1},
+          "status": {"enum": ["supported", "refuted", "open"]},
+          "drivers": {"type": "array", "items": {"$ref": "entity-namespace.v1.schema.json#/$defs/entity_ref"}, "description": "KPIs or entities named as drivers; compared with the scenario ground truth"},
+          "evidence": {"type": "array", "items": {"$ref": "common.v1.schema.json#/$defs/evidence_ref"}}
+        },
+        "if": {"properties": {"status": {"const": "supported"}}},
+        "then": {"properties": {"evidence": {"minItems": 1}}}
+      }
+    },
+    "recommended_actions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["title", "department", "action_type", "risk"],
+        "additionalProperties": false,
+        "properties": {
+          "title": {"type": "string", "minLength": 1, "maxLength": 200},
+          "description": {"type": ["string", "null"]},
+          "department": {"$ref": "common.v1.schema.json#/$defs/department"},
+          "owner": {"anyOf": [{"$ref": "entity-namespace.v1.schema.json#/$defs/person"}, {"type": "null"}]},
+          "action_type": {"$ref": "action.v1.schema.json#/$defs/action_type"},
+          "risk": {"$ref": "common.v1.schema.json#/$defs/risk"}
+        }
+      }
+    },
+    "open_questions": {"type": "array", "items": {"type": "string", "minLength": 1}, "description": "Including spawn requests the policy rejected"},
+    "no_cause_found": {"type": "boolean"},
+    "usage": {"$ref": "common.v1.schema.json#/$defs/usage"},
+    "data_class": {"$ref": "common.v1.schema.json#/$defs/data_class"},
+    "created_at": {"type": "string", "format": "date-time"}
+  },
+  "if": {"properties": {"no_cause_found": {"const": false}}},
+  "then": {"properties": {"hypotheses": {"minItems": 1}}}
+}

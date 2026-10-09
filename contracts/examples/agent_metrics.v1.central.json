@@ -1,0 +1,37 @@
+{
+  "schema_version": "agent_metrics.v1",
+  "source": "central-intelligence-agent",
+  "sim_date": "2018-01-10",
+  "role": "central",
+  "department": null,
+  "metrics": {
+    "runs": 1,
+    "tasks_started": 3,
+    "tasks_completed": 2,
+    "tasks_failed": 0,
+    "error_rate": 0.0,
+    "tokens_in": 31204,
+    "tokens_out": 2961,
+    "cost_eur": 0.0,
+    "latency_p50_s": 60.6,
+    "latency_p95_s": 93.4,
+    "delegation_depth_avg": 1.5,
+    "delegation_depth_max": 2,
+    "spawns_requested": 2,
+    "spawns_rejected": {
+      "permission": 0,
+      "depth": 1,
+      "breadth": 0,
+      "budget": 0,
+      "duplicate": 0,
+      "cycle": 0
+    },
+    "budget_exceeded": 0,
+    "tasks_open_overdue": 0,
+    "guardrail_violations": 1,
+    "false_findings": 0,
+    "missed_scenarios": 0
+  },
+  "data_class": "public",
+  "generated_at": "2026-10-10T03:00:00Z"
+}

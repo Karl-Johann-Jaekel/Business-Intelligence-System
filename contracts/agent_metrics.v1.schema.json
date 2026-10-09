@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Karl-Johann-Jaekel/Business-Intelligence-System/contracts/agent_metrics.v1.schema.json",
+  "title": "agent_metrics.v1",
+  "description": "Daily metrics of one agent role of the Central-Intelligence-Agent. The Business-Intelligence-System loads them into the department ai_ops and monitors them like any other KPI. One record per (sim_date, role, department). Status: draft (A0).",
+  "type": "object",
+  "required": ["schema_version", "source", "sim_date", "role", "department", "metrics", "data_class", "generated_at"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {"const": "agent_metrics.v1"},
+    "source": {"const": "central-intelligence-agent"},
+    "sim_date": {"type": "string", "format": "date"},
+    "role": {"enum": ["central", "department", "evaluator"]},
+    "department": {"anyOf": [{"$ref": "common.v1.schema.json#/$defs/department"}, {"type": "null"}], "description": "Set for role = department, otherwise null"},
+    "metrics": {
+      "type": "object",
+      "required": [
+        "runs", "tasks_started", "tasks_completed", "tasks_failed", "error_rate",
+        "tokens_in", "tokens_out", "cost_eur", "latency_p50_s", "latency_p95_s",
+        "delegation_depth_avg", "delegation_depth_max", "spawns_requested", "spawns_rejected",
+        "budget_exceeded", "tasks_open_overdue", "guardrail_violations", "false_findings", "missed_scenarios"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "runs": {"type": "integer", "minimum": 0},
+        "tasks_started": {"type": "integer", "minimum": 0},
+        "tasks_completed": {"type": "integer", "minimum": 0},
+        "tasks_failed": {"type": "integer", "minimum": 0},
+        "error_rate": {"type": ["number", "null"], "minimum": 0, "maximum": 1, "description": "Failed tasks and tool calls / all; null without activity"},
+        "tokens_in": {"type": "integer", "minimum": 0},
+        "tokens_out": {"type": "integer", "minimum": 0},
+        "cost_eur": {"type": "number", "minimum": 0},
+        "latency_p50_s": {"type": ["number", "null"], "minimum": 0},
+        "latency_p95_s": {"type": ["number", "null"], "minimum": 0},
+        "delegation_depth_avg": {"type": ["number", "null"], "minimum": 0},
+        "delegation_depth_max": {"type": ["integer", "null"], "minimum": 0},
+        "spawns_requested": {"type": "integer", "minimum": 0},
+        "spawns_rejected": {
+          "type": "object",
+          "description": "Rejected spawn requests by policy rule",
+          "required": ["permission", "depth", "breadth", "budget", "duplicate", "cycle"],
+          "additionalProperties": false,
+          "properties": {
+            "permission": {"type": "integer", "minimum": 0},
+            "depth": {"type": "integer", "minimum": 0},
+            "breadth": {"type": "integer", "minimum": 0},
+            "budget": {"type": "integer", "minimum": 0},
+            "duplicate": {"type": "integer", "minimum": 0},
+            "cycle": {"type": "integer", "minimum": 0}
+          }
+        },
+        "budget_exceeded": {"type": "integer", "minimum": 0},
+        "tasks_open_overdue": {"type": "integer", "minimum": 0},
+        "guardrail_violations": {"type": "integer", "minimum": 0},
+        "false_findings": {"type": ["integer", "null"], "minimum": 0, "description": "Set by the evaluator; null until evaluated"},
+        "missed_scenarios": {"type": ["integer", "null"], "minimum": 0, "description": "Set by the evaluator; null until evaluated"}
+      }
+    },
+    "data_class": {"$ref": "common.v1.schema.json#/$defs/data_class"},
+    "generated_at": {"type": "string", "format": "date-time"}
+  },
+  "if": {"properties": {"role": {"const": "department"}}},
+  "then": {"properties": {"department": {"$ref": "common.v1.schema.json#/$defs/department"}}},
+  "else": {"properties": {"department": {"type": "null"}}}
+}

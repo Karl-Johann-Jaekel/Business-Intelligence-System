@@ -1,0 +1,120 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Karl-Johann-Jaekel/Business-Intelligence-System/contracts/action.v1.schema.json",
+  "title": "action.v1",
+  "description": "A measure proposed by the Central-Intelligence-Agent: proposal, approval, execution and result in one record. L1 actions run only after approval by the admin; high-risk actions never run above L1. Status: draft (A0).",
+  "type": "object",
+  "required": ["schema_version", "action_id", "run_id", "trigger", "type", "target", "payload", "rationale", "evidence", "autonomy_level", "risk", "status", "approved_by", "result_ref", "data_class", "created_at"],
+  "additionalProperties": false,
+  "$defs": {
+    "action_type": {"enum": ["create_sim_ticket", "notify_admin", "write_fact", "create_ticket", "start_workflow"]}
+  },
+  "properties": {
+    "schema_version": {"const": "action.v1"},
+    "action_id": {"$ref": "common.v1.schema.json#/$defs/uuid", "description": "Idempotency key for execution"},
+    "run_id": {"$ref": "common.v1.schema.json#/$defs/uuid"},
+    "trigger": {
+      "type": "object",
+      "required": ["kind", "id"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": {"enum": ["insight", "finding", "decision", "admin"]},
+        "id": {"type": "string", "minLength": 1}
+      }
+    },
+    "type": {"$ref": "#/$defs/action_type"},
+    "target": {"type": "string", "minLength": 1, "description": "Where the action is executed, e.g. bis.sim_tickets, bis.facts, email.admin"},
+    "payload": {"type": "object", "description": "Type-specific content; see the conditional rules below"},
+    "rationale": {"type": "string", "minLength": 1},
+    "evidence": {"type": "array", "minItems": 1, "items": {"$ref": "common.v1.schema.json#/$defs/evidence_ref"}},
+    "autonomy_level": {"enum": ["L0", "L1", "L2"]},
+    "risk": {"$ref": "common.v1.schema.json#/$defs/risk"},
+    "status": {"enum": ["proposed", "approved", "rejected", "executed", "failed"]},
+    "approved_by": {"type": ["string", "null"], "description": "User id of the approver; null while proposed or for L2"},
+    "approved_at": {"type": ["string", "null"], "format": "date-time"},
+    "executed_at": {"type": ["string", "null"], "format": "date-time"},
+    "result_ref": {"type": ["string", "null"], "description": "ID or URL of the created object"},
+    "error": {"type": ["string", "null"]},
+    "data_class": {"$ref": "common.v1.schema.json#/$defs/data_class"},
+    "created_at": {"type": "string", "format": "date-time"}
+  },
+  "allOf": [
+    {
+      "$comment": "High-risk actions always need a human.",
+      "if": {"properties": {"risk": {"const": "high"}}},
+      "then": {"properties": {"autonomy_level": {"enum": ["L0", "L1"]}}}
+    },
+    {
+      "$comment": "L1 actions past the proposal stage carry the approver.",
+      "if": {"properties": {"autonomy_level": {"const": "L1"}, "status": {"enum": ["approved", "executed", "failed"]}}},
+      "then": {"properties": {"approved_by": {"type": "string", "minLength": 1}}, "required": ["approved_at"]}
+    },
+    {
+      "$comment": "L0 only informs; nothing is executed.",
+      "if": {"properties": {"autonomy_level": {"const": "L0"}}},
+      "then": {"properties": {"status": {"enum": ["proposed", "rejected"]}}}
+    },
+    {
+      "if": {"properties": {"status": {"const": "executed"}}},
+      "then": {"properties": {"result_ref": {"type": "string", "minLength": 1}}, "required": ["executed_at"]}
+    },
+    {
+      "if": {"properties": {"status": {"const": "failed"}}},
+      "then": {"properties": {"error": {"type": "string", "minLength": 1}}, "required": ["error"]}
+    },
+    {
+      "if": {"properties": {"type": {"const": "create_sim_ticket"}}},
+      "then": {
+        "properties": {
+          "payload": {
+            "type": "object",
+            "required": ["title", "body", "department"],
+            "additionalProperties": false,
+            "properties": {
+              "title": {"type": "string", "minLength": 1, "maxLength": 200},
+              "body": {"type": "string", "minLength": 1},
+              "department": {"$ref": "common.v1.schema.json#/$defs/department"},
+              "assignee": {"anyOf": [{"$ref": "entity-namespace.v1.schema.json#/$defs/person"}, {"type": "null"}]},
+              "priority": {"enum": ["low", "medium", "high"]},
+              "labels": {"type": "array", "items": {"type": "string"}}
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {"properties": {"type": {"const": "write_fact"}}},
+      "then": {
+        "properties": {
+          "payload": {
+            "type": "object",
+            "required": ["source", "edge", "target"],
+            "additionalProperties": false,
+            "properties": {
+              "source": {"$ref": "entity-namespace.v1.schema.json#/$defs/entity_ref"},
+              "edge": {"enum": ["TRIGGERED", "INVESTIGATED_BY"]},
+              "target": {"$ref": "entity-namespace.v1.schema.json#/$defs/entity_ref"},
+              "note": {"type": ["string", "null"]}
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {"properties": {"type": {"const": "notify_admin"}}},
+      "then": {
+        "properties": {
+          "payload": {
+            "type": "object",
+            "required": ["subject", "body"],
+            "additionalProperties": false,
+            "properties": {
+              "subject": {"type": "string", "minLength": 1, "maxLength": 200},
+              "body": {"type": "string", "minLength": 1}
+            }
+          }
+        }
+      }
+    }
+  ]
+}

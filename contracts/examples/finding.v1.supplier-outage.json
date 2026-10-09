@@ -1,0 +1,114 @@
+{
+  "schema_version": "finding.v1",
+  "finding_id": "2e4d6c8b-0a1f-4e3d-b5c7-9a8b7c6d5e4f",
+  "task_id": "9a1b2c3d-4e5f-4a6b-8c7d-0e1f2a3b4c5d",
+  "run_id": "3b0e8c1a-5d2f-4e6a-9c7b-1f2e3d4c5b6a",
+  "department": "supply",
+  "summary": "Die Lieferzeit in SP stieg ab dem 02.01.2018 von 19,2 auf 27,9 Tage. Der Anstieg betrifft fast nur Bestellungen eines Lieferanten; Bewertungen in SP sinken mit einer Woche Verzug.",
+  "statements": [
+    {
+      "text": "Ø Lieferzeit in SP am 07.01.2018: 27,9 Tage statt erwartet 19,2 Tage.",
+      "numbers": [
+        {
+          "value": 27.9,
+          "unit": "days",
+          "kpi": "delivery_time_avg_days"
+        },
+        {
+          "value": 19.2,
+          "unit": "days",
+          "kpi": "delivery_time_avg_days"
+        }
+      ],
+      "evidence": [
+        {
+          "kind": "insight",
+          "id": "6f1c2d5e-0b7a-4c3e-9a1f-2d4b6c8e0a12"
+        },
+        {
+          "kind": "query",
+          "ref": "/api/v1/kpis/delivery_time_avg_days/series?from=2017-12-01&to=2018-01-10&dim=region&members=SP"
+        }
+      ]
+    },
+    {
+      "text": "84 % des Anstiegs entfallen auf Bestellungen eines einzelnen Lieferanten.",
+      "numbers": [
+        {
+          "value": 84,
+          "unit": "percent",
+          "kpi": null
+        }
+      ],
+      "evidence": [
+        {
+          "kind": "query",
+          "ref": "/api/v1/kpis/delivery_time_avg_days/drivers?dim=seller&from=2018-01-02&to=2018-01-10"
+        }
+      ]
+    }
+  ],
+  "hypotheses": [
+    {
+      "text": "Lieferengpass bei einem Lieferanten verzögert Bestellungen in SP.",
+      "confidence": 0.78,
+      "status": "supported",
+      "drivers": [
+        {
+          "type": "seller",
+          "id": "seller:4a3ca9315b744ce9f8e9374361493884"
+        },
+        {
+          "type": "kpi",
+          "id": "kpi:delivery_time_avg_days"
+        }
+      ],
+      "evidence": [
+        {
+          "kind": "query",
+          "ref": "/api/v1/kpis/delivery_time_avg_days/drivers?dim=seller&from=2018-01-02&to=2018-01-10"
+        }
+      ]
+    },
+    {
+      "text": "Saisonaler Nachfrageschub nach den Feiertagen.",
+      "confidence": 0.15,
+      "status": "refuted",
+      "drivers": [
+        {
+          "type": "kpi",
+          "id": "kpi:orders_count"
+        }
+      ],
+      "evidence": [
+        {
+          "kind": "query",
+          "ref": "/api/v1/kpis/orders_count/series?from=2017-12-01&to=2018-01-10"
+        }
+      ]
+    }
+  ],
+  "recommended_actions": [
+    {
+      "title": "Lieferant kontaktieren und Ersatz für SP prüfen",
+      "description": "Einkauf klärt Lieferfähigkeit; bis dahin Bestellungen auf alternative Lieferanten lenken.",
+      "department": "supply",
+      "owner": "person:leitung-logistik",
+      "action_type": "create_sim_ticket",
+      "risk": "medium"
+    }
+  ],
+  "open_questions": [
+    "Wirkt der Verzug auch auf Marketing-Kampagnen in SP? (Spawn wegen maximaler Tiefe abgelehnt)"
+  ],
+  "no_cause_found": false,
+  "usage": {
+    "tokens_in": 18342,
+    "tokens_out": 1270,
+    "cost_eur": 0.0,
+    "duration_s": 93.4,
+    "model": "mistral-small-latest"
+  },
+  "data_class": "public",
+  "created_at": "2026-10-10T02:11:48Z"
+}
