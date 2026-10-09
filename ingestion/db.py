@@ -99,6 +99,21 @@ CREATE TABLE IF NOT EXISTS ops.event_deliveries (
     delivered_at     timestamptz,
     PRIMARY KEY (event_id, consumer)
 );
+
+-- LLM calls of the BI system itself (briefing, later extraction): tokens and cost per call,
+-- shown in the admin area. The agent system (CIA) reports its own usage via agent_metrics.v1.
+CREATE TABLE IF NOT EXISTS ops.llm_usage (
+    usage_id     bigserial PRIMARY KEY,
+    purpose      text NOT NULL,
+    provider     text NOT NULL,
+    model        text NOT NULL,
+    sim_date     date,
+    tokens_in    integer NOT NULL CHECK (tokens_in >= 0),
+    tokens_out   integer NOT NULL CHECK (tokens_out >= 0),
+    cost_eur     numeric(12, 6) NOT NULL DEFAULT 0,
+    created_at   timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS llm_usage_created_idx ON ops.llm_usage (created_at DESC);
 """
 
 API_ROLE = "bis_api"
@@ -116,9 +131,9 @@ def ensure_api_role(conn: psycopg.Connection, password: str) -> None:
     conn.execute(sql.SQL("ALTER ROLE {} SET statement_timeout = '10s'").format(role))
     conn.execute("CREATE SCHEMA IF NOT EXISTS marts")
     conn.execute(sql.SQL("GRANT USAGE ON SCHEMA marts TO {}").format(role))
-    # Besides marts the API may read the event outbox, nothing else in ops.
+    # Besides marts the API may read the event outbox and the LLM usage (admin cost view).
     conn.execute(sql.SQL("GRANT USAGE ON SCHEMA ops TO {}").format(role))
-    conn.execute(sql.SQL("GRANT SELECT ON ops.events TO {}").format(role))
+    conn.execute(sql.SQL("GRANT SELECT ON ops.events, ops.llm_usage TO {}").format(role))
     conn.commit()
 
 
