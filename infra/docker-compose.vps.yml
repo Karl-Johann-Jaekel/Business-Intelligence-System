@@ -14,6 +14,7 @@ x-app-env: &app-env
   BIS_MARKETING_API_URL: http://mock-marketing-api:8000
   BIS_KEYCLOAK_URL: http://keycloak:8080
   BIS_FRONTEND_ORIGINS: https://${BIS_PUBLIC_HOST:?Set BIS_PUBLIC_HOST in infra/.env}
+  BIS_MCP_RESOURCE_URL: https://${BIS_PUBLIC_HOST}/mcp
   DAGSTER_HOME: /app/orchestration/dagster_home
   BIS_ENV_FROM_COMPOSE: "true"
   # One simulated day per night (plan: replay instead of real time). Webserver and daemon must
@@ -87,6 +88,26 @@ services:
       retries: 10
     mem_limit: 384m
 
+  mcp:
+    build:
+      context: ..
+      dockerfile: api/Dockerfile
+    image: bis-api
+    restart: unless-stopped
+    command: ["uvicorn", "api.mcp_server:app", "--host", "0.0.0.0", "--port", "8001", "--proxy-headers", "--forwarded-allow-ips", "*"]
+    environment:
+      BIS_PG_HOST: postgres
+      BIS_PG_PORT: "5432"
+      BIS_API_DB_PASSWORD: ${BIS_API_DB_PASSWORD}
+      BIS_OIDC_ISSUER: https://${BIS_AUTH_HOST}/realms/bis
+      BIS_OIDC_JWKS_URL: http://keycloak:8080/realms/bis/protocol/openid-connect/certs
+      BIS_MCP_RESOURCE_URL: https://${BIS_PUBLIC_HOST}/mcp
+      BIS_MCP_ALLOWED_HOSTS: ${BIS_PUBLIC_HOST}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    mem_limit: 256m
+
   frontend:
     build:
       context: ../frontend
@@ -96,6 +117,7 @@ services:
     restart: unless-stopped
     depends_on:
       - api
+      - mcp
     networks:
       default: {}
       web:

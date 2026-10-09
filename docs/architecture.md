@@ -159,3 +159,16 @@ nicht aber das Zustellprotokoll.
 
 Lokal läuft Keycloak im Dev-Modus mit Dateispeicher. Auf dem VPS bekommt das bestehende
 Keycloak den Realm `bis` (offener Punkt 1 im Plan), die Redirect-URIs werden angepasst.
+
+## MCP-Server für Claude
+
+`api/mcp_server.py`, eigener Container `mcp` aus dem API-Image, über nginx unter `/mcp`.
+
+| Teil | Umsetzung |
+|---|---|
+| Transport | Streamable HTTP, zustandslos, JSON-Antworten (SDK `mcp` 2.x) |
+| Tools | `get_status`, `list_kpis`, `get_kpi_series`, `compare_kpi`, `list_insights`, `get_latest_briefing`; alle read-only, nutzen die Logik und die Leserolle der API |
+| Discovery | `/.well-known/oauth-protected-resource/mcp` verweist auf Keycloak; Keycloak 26.4 liefert RFC-8414-Metadaten |
+| Login | Client `bis-claude` (vertraulich, PKCE S256, Callback von claude.ai), Scope `read:kpi`, Audience = MCP-Ressource. MCP-Token gelten nicht für die REST-API und umgekehrt |
+| Datenklassen | nur `BIS_MCP_DATA_CLASSES` (Standard `public`); interne KPIs, Insights und Briefings bleiben im System |
+| Schutz | DNS-Rebinding-Schutz über `BIS_MCP_ALLOWED_HOSTS`; keine offene dynamische Client-Registrierung |

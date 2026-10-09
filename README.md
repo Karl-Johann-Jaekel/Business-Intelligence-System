@@ -74,6 +74,14 @@ bis clock show
   demo user `demo` (password: `BIS_DEMO_PASSWORD` in `infra/.env`).
 - LLM calls are routed by data class: the external provider only receives `public` data.
 
+## Claude (MCP connector)
+
+The system exposes a read-only MCP server at `/mcp` (Streamable HTTP). In claude.ai:
+Settings → Connectors → **Add custom connector**, URL `https://<BIS_PUBLIC_HOST>/mcp`, and under
+*Advanced settings* the OAuth client id and secret printed by `bis claude-connector` on the server.
+Claude then signs in through Keycloak and can call `get_status`, `list_kpis`, `get_kpi_series`,
+`compare_kpi`, `list_insights` and `get_latest_briefing`. Only `public` data is exposed.
+
 ## Contracts
 
 Event and ID formats for other systems: [contracts/](contracts/README.md) (JSON Schema,

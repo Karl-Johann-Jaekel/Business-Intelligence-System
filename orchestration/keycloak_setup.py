@@ -18,6 +18,9 @@ API_SCOPES = ("read:kpi", "read:knowledge", "write:facts", "admin:review")
 FRONTEND_DEFAULT_SCOPES = ("read:kpi",)
 FRONTEND_OPTIONAL_SCOPES = ("read:knowledge",)
 LOCAL_ORIGINS = "http://127.0.0.1:8103,http://127.0.0.1:5173"
+MCP_CLIENT_ID = "bis-claude"
+# Callbacks of Claude's custom connectors (claude.ai / claude.com).
+CLAUDE_CALLBACKS = ("https://claude.ai/api/mcp/auth_callback", "https://claude.com/api/mcp/auth_callback")
 
 
 @dataclass
@@ -88,6 +91,56 @@ class KeycloakAdmin:
         rep.setdefault("attributes", {})["post.logout.redirect.uris"] = "##".join(f"{o}/*" for o in origins)
         self.send("PUT", f"/clients/{client}", rep)
 
+    def ensure_mcp_client(self, client_id: str, resource_url: str, redirect_uris: list[str]) -> None:
+        """Confidential client for Claude's MCP connector: authorization code + PKCE, tokens whose
+        audience is the MCP resource only (they are not valid for the REST API)."""
+        rep = {
+            "clientId": client_id,
+            "name": "Claude MCP connector",
+            "enabled": True,
+            "publicClient": False,
+            "clientAuthenticatorType": "client-secret",
+            "standardFlowEnabled": True,
+            "implicitFlowEnabled": False,
+            "directAccessGrantsEnabled": False,
+            "serviceAccountsEnabled": False,
+            "redirectUris": redirect_uris,
+            "attributes": {"pkce.code.challenge.method": "S256"},
+            "protocolMappers": [
+                {
+                    "name": "audience mcp resource",
+                    "protocol": "openid-connect",
+                    "protocolMapper": "oidc-audience-mapper",
+                    "config": {
+                        "included.custom.audience": resource_url,
+                        "id.token.claim": "false",
+                        "access.token.claim": "true",
+                    },
+                }
+            ],
+        }
+        existing = self.get("/clients", clientId=client_id)
+        if not existing:
+            self.send("POST", "/clients", rep)
+            return
+        current = self.get(f"/clients/{existing[0]['id']}")
+        current.update({k: v for k, v in rep.items() if k != "protocolMappers"})
+        current.setdefault("attributes", {}).update(rep["attributes"])
+        self.send("PUT", f"/clients/{existing[0]['id']}", current)
+        mapper = rep["protocolMappers"][0]
+        mappers = {m["name"]: m for m in self.get(f"/clients/{existing[0]['id']}/protocol-mappers/models")}
+        if mapper["name"] in mappers:
+            self.send(
+                "PUT",
+                f"/clients/{existing[0]['id']}/protocol-mappers/models/{mappers[mapper['name']]['id']}",
+                mappers[mapper["name"]] | {"config": mapper["config"]},
+            )
+        else:
+            self.send("POST", f"/clients/{existing[0]['id']}/protocol-mappers/models", mapper)
+
+    def client_secret(self, client_id: str) -> str:
+        return self.get(f"/clients/{self.client_uuid(client_id)}/client-secret")["value"]
+
     def ensure_user(self, username: str, password: str) -> None:
         users = self.get("/users", username=username, exact="true")
         if not users:
@@ -134,11 +187,28 @@ def provision(base_url: str | None = None) -> list[str]:
         if o.strip()
     ]
     admin.set_frontend_urls("bis-frontend", origins)
+    mcp_resource = os.getenv("BIS_MCP_RESOURCE_URL", "http://127.0.0.1:8103/mcp")
+    admin.ensure_mcp_client(MCP_CLIENT_ID, mcp_resource, list(CLAUDE_CALLBACKS))
+    for name in FRONTEND_DEFAULT_SCOPES:
+        admin.assign_scope(MCP_CLIENT_ID, scope_ids[name], "default")
     user = os.getenv("BIS_DEMO_USER", "demo")
     admin.ensure_user(user, require_secret("BIS_DEMO_PASSWORD"))
     return [
         f"scopes: {', '.join(API_SCOPES)}",
         f"bis-frontend default: {', '.join(FRONTEND_DEFAULT_SCOPES)}",
         f"bis-frontend origins: {', '.join(origins)}",
+        f"{MCP_CLIENT_ID}: audience {mcp_resource}",
         f"user: {user}",
     ]
+
+
+def _admin() -> KeycloakAdmin:
+    from ingestion.config import require_secret
+
+    base_url = os.getenv("BIS_KEYCLOAK_URL") or f"http://127.0.0.1:{os.getenv('BIS_KEYCLOAK_PORT', '8180')}"
+    return KeycloakAdmin.login(base_url, require_secret("BIS_KEYCLOAK_ADMIN_PASSWORD"))
+
+
+def mcp_client_credentials() -> tuple[str, str]:
+    """Client id and secret for the Claude connector (shown only on explicit request)."""
+    return MCP_CLIENT_ID, _admin().client_secret(MCP_CLIENT_ID)

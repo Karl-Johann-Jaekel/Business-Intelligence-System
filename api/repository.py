@@ -65,7 +65,13 @@ class Repository(Protocol):
     ) -> list[Aggregate]: ...
 
     def insights(
-        self, since: date | None, types: list[str] | None, min_rank: int, kpi: str | None, limit: int
+        self,
+        since: date | None,
+        types: list[str] | None,
+        min_rank: int,
+        kpi: str | None,
+        limit: int,
+        classes: list[str] | None = None,
     ) -> list[dict]: ...
 
     def latest_briefing(self) -> dict | None: ...
@@ -147,7 +153,13 @@ class WarehouseRepository:
         return [Aggregate(dim_value, entity_id, _f(value)) for dim_value, entity_id, value in rows]
 
     def insights(
-        self, since: date | None, types: list[str] | None, min_rank: int, kpi: str | None, limit: int
+        self,
+        since: date | None,
+        types: list[str] | None,
+        min_rank: int,
+        kpi: str | None,
+        limit: int,
+        classes: list[str] | None = None,
     ) -> list[dict]:
         rows = self.conn.execute(
             """
@@ -157,11 +169,19 @@ class WarehouseRepository:
               AND (%(types)s::text[] IS NULL OR type = ANY(%(types)s))
               AND (CASE severity WHEN 'critical' THEN 2 WHEN 'warning' THEN 1 ELSE 0 END) >= %(rank)s
               AND (%(kpi)s::text IS NULL OR kpi = %(kpi)s)
+              AND (%(classes)s::text[] IS NULL OR data_class = ANY(%(classes)s))
             ORDER BY period_end DESC, CASE severity WHEN 'critical' THEN 0 WHEN 'warning' THEN 1 ELSE 2 END,
                      created_at DESC
             LIMIT %(limit)s
             """,
-            {"since": since, "types": types, "rank": min_rank, "kpi": kpi, "limit": limit},
+            {
+                "since": since,
+                "types": types,
+                "rank": min_rank,
+                "kpi": kpi,
+                "limit": limit,
+                "classes": classes,
+            },
         ).fetchall()
         return [row[0] for row in rows]
 

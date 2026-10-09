@@ -36,9 +36,10 @@ class TokenVerifier:
         self._jwks = jwt.PyJWKClient(jwks_url, cache_keys=True, lifespan=600) if jwks_url else None
         self._key = key
 
-    def verify(self, token: str) -> Principal:
+    def decode(self, token: str) -> dict:
+        """Validated claims (signature, issuer, audience, expiry); raises jwt.PyJWTError."""
         key = self._key if self._jwks is None else self._jwks.get_signing_key_from_jwt(token).key
-        claims = jwt.decode(
+        return jwt.decode(
             token,
             key,
             algorithms=["RS256"],
@@ -46,6 +47,9 @@ class TokenVerifier:
             issuer=self.issuer,
             options={"require": ["exp", "iat", "iss", "aud", "sub"]},
         )
+
+    def verify(self, token: str) -> Principal:
+        claims = self.decode(token)
         return Principal(
             subject=claims["sub"],
             username=claims.get("preferred_username"),
