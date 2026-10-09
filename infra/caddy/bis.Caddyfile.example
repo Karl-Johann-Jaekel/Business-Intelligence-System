@@ -1,0 +1,49 @@
+# Site blocks for the shared reverse proxy (Caddy on the external network "web").
+# Replace the host names (BIS_PUBLIC_HOST / BIS_AUTH_HOST in infra/.env), append to the proxy's
+# Caddyfile, then: caddy validate && caddy reload.
+
+# ═══ Business-Intelligence-System: dashboard + /api (nginx in the frontend container) ═══
+business.example.org {
+	encode zstd gzip
+
+	reverse_proxy bis-web:8080 {
+		# Overwrite, do not append: clients must not control X-Forwarded-For.
+		header_up X-Forwarded-For {remote_host}
+	}
+
+	header {
+		X-Content-Type-Options nosniff
+		Referrer-Policy strict-origin-when-cross-origin
+		X-Frame-Options DENY
+		-Server
+	}
+
+	log {
+		output stdout
+		format console
+	}
+}
+
+# ═══ Login (Keycloak, realm "bis") ═══
+# The admin console stays internal (SSH tunnel); provisioning talks to keycloak:8080 directly.
+auth.example.org {
+	encode zstd gzip
+
+	@admin path /admin /admin/*
+	respond @admin 404
+
+	reverse_proxy bis-auth:8080 {
+		header_up X-Forwarded-For {remote_host}
+	}
+
+	header {
+		X-Content-Type-Options nosniff
+		Referrer-Policy strict-origin-when-cross-origin
+		-Server
+	}
+
+	log {
+		output stdout
+		format console
+	}
+}

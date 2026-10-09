@@ -27,6 +27,9 @@ def _ensure_env_file() -> None:
     """Create infra/.env with random secrets on first use and load it."""
     from ingestion.config import ENV_FILE, ensure_env_file, load_env_file
 
+    if os.getenv("BIS_ENV_FROM_COMPOSE") == "true":
+        return  # in a container all settings come from the compose environment
+
     added = ensure_env_file()
     if added:
         # Only key names are printed, never values.
