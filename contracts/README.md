@@ -7,7 +7,7 @@ validates against it in its CI.
 | Contract | File | Status |
 |---|---|---|
 | Entity namespace `<type>:<source key>` | [entity-namespace.v1.schema.json](entity-namespace.v1.schema.json) | draft |
-| `insight.v1` | [insight.v1.schema.json](insight.v1.schema.json) | draft, frozen at milestone M1 |
+| `insight.v1` | [insight.v1.schema.json](insight.v1.schema.json) | **frozen** (M1, 2026-10-09; tag `contracts-insight.v1`) |
 | `decision.v1` | – | phase K3 |
 | `context.v1` | – | phase K3 |
 | `action.v1` | – | phase K4 |
