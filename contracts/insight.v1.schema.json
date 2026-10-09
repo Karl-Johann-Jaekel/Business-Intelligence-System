@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/Karl-Johann-Jaekel/Business-Intelligence-System/contracts/insight.v1.schema.json",
   "title": "insight.v1",
-  "description": "An anomaly, briefing, forecast deviation or data-quality finding of the Business-Intelligence-System. Status: draft until milestone M1, then frozen (additive, optional fields only).",
+  "description": "An anomaly, briefing, forecast deviation or data-quality finding of the Business-Intelligence-System. Status: frozen since milestone M1 (2026-10-09); only additive, optional fields within v1.",
   "type": "object",
   "required": ["schema_version", "insight_id", "source", "type", "period", "severity", "evidence", "summary", "data_class", "created_at"],
   "additionalProperties": false,

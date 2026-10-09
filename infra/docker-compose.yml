@@ -60,6 +60,24 @@ services:
       timeout: 3s
       retries: 10
 
+  mcp:
+    build:
+      context: ..
+      dockerfile: api/Dockerfile
+    restart: unless-stopped
+    command: ["uvicorn", "api.mcp_server:app", "--host", "0.0.0.0", "--port", "8001"]
+    environment:
+      BIS_PG_HOST: postgres
+      BIS_PG_PORT: "5432"
+      BIS_API_DB_PASSWORD: ${BIS_API_DB_PASSWORD:?Set BIS_API_DB_PASSWORD in infra/.env}
+      BIS_OIDC_ISSUER: http://127.0.0.1:${BIS_KEYCLOAK_PORT:-8180}/realms/bis
+      BIS_OIDC_JWKS_URL: http://keycloak:8080/realms/bis/protocol/openid-connect/certs
+      BIS_MCP_RESOURCE_URL: http://127.0.0.1:${BIS_FRONTEND_PORT:-8103}/mcp
+      BIS_MCP_ALLOWED_HOSTS: 127.0.0.1:${BIS_FRONTEND_PORT:-8103}
+    depends_on:
+      postgres:
+        condition: service_healthy
+
   frontend:
     build: ../frontend
     restart: unless-stopped
@@ -67,6 +85,7 @@ services:
       - "127.0.0.1:${BIS_FRONTEND_PORT:-8103}:8080"
     depends_on:
       - api
+      - mcp
     healthcheck:
       test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/"]
       interval: 5s

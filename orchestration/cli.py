@@ -139,6 +139,16 @@ def cmd_clock(args: argparse.Namespace) -> None:
     print(f"Simulation date: {value}")
 
 
+def cmd_claude_connector(args: argparse.Namespace) -> None:
+    """For the person setting up the connector in claude.ai. Prints a secret by design."""
+    from orchestration.keycloak_setup import mcp_client_credentials
+
+    client_id, secret = mcp_client_credentials()
+    print(f"MCP server URL:      {os.getenv('BIS_MCP_RESOURCE_URL', 'http://127.0.0.1:8103/mcp')}")
+    print(f"OAuth Client ID:     {client_id}")
+    print(f"OAuth Client Secret: {secret}")
+
+
 def cmd_tick(args: argparse.Namespace) -> None:
     """Advance the clock by one day and run the pipeline, `days` times."""
     for _ in range(args.days):
@@ -172,6 +182,12 @@ def main(argv: list[str] | None = None) -> None:
     p.add_argument("action", choices=["show", "set", "advance"], nargs="?", default="show")
     p.add_argument("value", nargs="?", help="ISO date for `set`, number of days for `advance`")
     p.set_defaults(func=cmd_clock)
+
+    p = sub.add_parser(
+        "claude-connector",
+        help="Print URL, client id and secret for the Claude MCP connector (contains a secret!)",
+    )
+    p.set_defaults(func=cmd_claude_connector)
 
     p = sub.add_parser("tick", help="Advance one simulated day and run the pipeline (repeatable)")
     p.add_argument("--days", type=int, default=1)

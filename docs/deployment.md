@@ -15,6 +15,7 @@ Hostnamen, Secrets und Zugangsdaten stehen ausschließlich in `infra/.env` auf d
 | `postgres` (pgvector; `warehouse`, `erp`, `dagster`, `keycloak`) | nur intern | 1 GB |
 | `dagster-webserver` | nur `127.0.0.1:$BIS_DAGSTER_PORT` (SSH-Tunnel) | 768 MB |
 | `dagster-daemon` (Schedule `simulated_day`, Läufe) | – | 2 GB |
+| `mcp` (MCP-Server für Claude) | `https://$BIS_PUBLIC_HOST/mcp` über das Frontend-nginx | 256 MB |
 | `mock-marketing-api` | nur intern | 128 MB |
 | `app` (Profil `tools`, Einmalaufgaben) | – | 2 GB |
 
@@ -54,8 +55,22 @@ und `caddy reload`.
 | Update | Code aktualisieren, `build`, `up -d`; bei dbt-Änderungen läuft `dbt parse` im Image-Build |
 | Stoppen | `docker compose -f docker-compose.vps.yml --env-file .env stop` (Daten bleiben) |
 
+## Claude-Connector einrichten
+
+1. Auf dem Server: `docker compose -f docker-compose.vps.yml --env-file .env run --rm app bis claude-connector`
+   (gibt URL, Client-ID und **Secret** aus, nur selbst ausführen).
+2. claude.ai → Einstellungen → Connectors → *Add custom connector*: URL eintragen, unter
+   *Advanced settings* Client-ID und Secret.
+3. Beim Verbinden öffnet sich der Keycloak-Login (Realm `bis`).
+
+## Backup
+
+`infra/backup.sh` sichert täglich um 03:30 (Cron des Server-Nutzers) die Schemas `ops` und
+`marts` (ab K1 auch `knowledge`) sowie die Keycloak-Datenbank nach `~/backups/bis`, 14 Tage.
+`infra/backup-verify.sh` spielt die neueste Sicherung in eine Wegwerf-Datenbank ein und prüft
+die Kerntabellen; zuletzt erfolgreich am 2026-10-09.
+
 ## Offen
 
-- Tägliches Backup (`pg_dump` von `ops`, `marts`, später `knowledge`; Plan §13)
 - SMTP-Anbieter für Alerts, LLM-Zugang für das Briefing
 - Uptime-Kuma-Monitore für Dashboard und Login

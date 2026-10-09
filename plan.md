@@ -1,8 +1,17 @@
 # PLAN.md – Business-Intelligence-System
 
-Stand: 2026-10-08 · Version 2 · ersetzt Version 1 vom 2026-10-06
+Stand: 2026-10-09 · Version 2.1 · ersetzt Version 2 vom 2026-10-08 (Änderungen siehe §0)
 
-## 0. Änderungen gegenüber Version 1
+## 0. Änderungen
+
+### Version 2.1 (2026-10-09), Entscheidungen beim Deployment
+
+- Auf dem VPS läuft kein Keycloak. Das BI-System betreibt deshalb ein eigenes Keycloak im eigenen Stack (Realm `bis`); offener Punkt 1 ist entschieden.
+- Subdomains `business` (Dashboard, API, MCP) und `auth` (Login); offener Punkt 4 ist entschieden.
+- Claude wird über einen MCP-Server angebunden (Custom Connector in claude.ai), nicht über einen API-Schlüssel. Der MCP-Server wird aus K4 nach Woche 3 vorgezogen und ist Teil von M1.
+- Das automatische Briefing setzt einen LLM-Zugang voraus. Ohne Zugang wird es übersprungen; die Zahlen-Leitplanke ist gebaut und getestet, ihr Live-Nachweis folgt mit einem Zugang.
+
+### Version 2 (2026-10-08), gegenüber Version 1
 
 - Die Wissensschicht (Meetings, Entscheidungen, Kommunikation, Dokumente) ist jetzt Teil des BI-Systems. Hive Mind bleibt unverändert.
 - Neue Phasen K1–K4 zwischen MVP und Ausbau.
@@ -38,7 +47,9 @@ End-to-End Data/AI-System, das Kennzahlen und Organisationswissen an einer Stell
 | Lokale Inferenz | Eigene Ollama-Instanz im BI-Stack (Extraktion, Embeddings, vertrauliche Prompts) |
 | Backend / Frontend | FastAPI / React + Vite + TypeScript |
 | Alerts | E-Mail als primärer Kanal |
-| Deployment | vorhandener VPS, eigenes Compose-Projekt |
+| Deployment | vorhandener VPS, eigenes Compose-Projekt, Subdomains `business` und `auth` |
+| Login | Eigenes Keycloak im BI-Stack (Realm `bis`), OIDC mit Scopes pro Client |
+| Claude-Anbindung | MCP-Server (Streamable HTTP, OAuth über Keycloak) als Connector in claude.ai; nur `public`-Daten |
 | MVP-KI | Anomalieerkennung + AI-Analyst; Wissensschicht in K1–K4; NL-Querying und Forecasting in Phase 2 |
 
 **Warum kein Qdrant:** Der Korpus des Referenzunternehmens umfasst einige tausend Chunks. Dafür reicht pgvector, und es entfällt ein Datenbankdienst. Wechsel nur, wenn Messungen es verlangen.
@@ -76,7 +87,8 @@ Dagster orchestriert beide Stränge. Die LLM-Schicht leitet jeden Aufruf nach Da
 | Verknüpfung | Insight ↔ Entscheidungen und Meetings über gemeinsame Entitäten, Zeitfenster und Suche |
 | KI | Provider-agnostische LLM-Schicht mit Routing nach `data_class` |
 | Events | Outbox `ops.events` + Dispatcher an eine Empfängerliste; E-Mail ist der erste Empfänger |
-| Auth | OIDC (Keycloak, eigener Realm), Scopes pro Client |
+| Auth | OIDC (eigenes Keycloak im BI-Stack, Realm `bis`), Scopes pro Client |
+| MCP | Lesende Tools über die API-Logik, eigener Client `bis-claude`, Token-Audience = MCP-Ressource |
 
 ## 4. Datenbasis und Quellen
 
@@ -230,6 +242,7 @@ Die Oberfläche zeigt sie als "möglicher Kontext", nie als Ursache. Ob ein Zusa
 - Pflichtfeld auf Dokumenten, Chunks, Knoten, Events und Registry-Einträgen, ab Woche 1 im Schema.
 - Ein Prompt erbt die höchste Datenklasse seiner Bestandteile.
 - Die LLM-Schicht erzwingt das Routing. Ein Test stellt sicher, dass ein vertraulicher Aufruf an einen externen Provider fehlschlägt.
+- Der MCP-Server gilt als externer Empfänger (Claude): er gibt nur Daten der Klassen aus `BIS_MCP_DATA_CLASSES` heraus, Standard `public`.
 - Für Demos lässt sich der synthetische Korpus per Schalter als `public` einstufen, um lokale und externe Modelle in den Evals zu vergleichen. Standard bleibt `confidential`.
 
 ## 9. API v1
@@ -248,6 +261,7 @@ Die Oberfläche zeigt sie als "möglicher Kontext", nie als Ursache. Ob ein Zusa
 | `GET/POST /api/v1/review` | Review-Queue | `admin:review` |
 | `POST /api/v1/query` | Fragen in natürlicher Sprache (Phase 2) | `read:kpi`, `read:knowledge` |
 | `GET /api/v1/health` | Status, letzter erfolgreicher Lauf | – |
+| `/mcp` | MCP-Server (Streamable HTTP) für Claude; Tools für Status, KPIs, Zeitreihen, Vergleiche, Insights, Briefing | `read:kpi` (Token für die MCP-Ressource) |
 
 Die API liest über eine Datenbankrolle ohne Schreibrechte auf `marts` und `knowledge`. Schreibende Endpoints (`facts`, `review`) laufen über eine eigene Rolle mit Zugriff nur auf die betroffenen Tabellen. Jeder Abruf von `read:knowledge` wird in `knowledge.access_log` protokolliert.
 
@@ -309,10 +323,11 @@ Zeitangaben in Vollzeit-Wochen. dbt und Dagster sind beide neu; bei Teilzeit ent
 - Anomalie-Injektion als Testwerkzeug
 - Dispatcher + E-Mail-Alert, AI-Analyst mit Zahlen-Leitplanke
 - Login über Keycloak, Deployment auf dem VPS, CI baut Images, README
+- MCP-Server für Claude (vorgezogen aus K4), tägliches Backup
 
-**DoD:** Injizierte Anomalien werden erkannt und gemeldet (Startziel: ≥ 80 % Trefferquote, ≤ 2 Fehlalarme pro simuliertem Monat). Das Briefing besteht die Zahlen-Leitplanke. Das Dashboard ist nur nach Login erreichbar.
+**DoD:** Injizierte Anomalien werden erkannt und gemeldet (Startziel: ≥ 80 % Trefferquote, ≤ 2 Fehlalarme pro simuliertem Monat). Das Briefing besteht die Zahlen-Leitplanke, sobald ein LLM-Zugang konfiguriert ist; ohne Zugang wird es übersprungen. Das Dashboard ist nur nach Login erreichbar. Claude erreicht das System als Connector mit Login und sieht nur `public`-Daten.
 
-**Meilenstein M1:** BI-MVP läuft, `insight.v1` ist eingefroren.
+**Meilenstein M1:** BI-MVP läuft, MCP-Connector für Claude ist nutzbar, `insight.v1` ist eingefroren.
 
 ### K1 – Wissensaufnahme (ca. 1 Woche)
 - Korpus-Generator, gekoppelt an Simulationsuhr und echte Auffälligkeiten
@@ -342,7 +357,7 @@ Zeitangaben in Vollzeit-Wochen. dbt und Dagster sind beide neu; bei Teilzeit ent
 - Keycloak-Scopes pro Client, Zugriffsprotokoll
 - `POST /api/v1/facts` mit Kante `TRIGGERED`
 - OpenAPI-Dokumentation, `context.v1` und `decision.v1` eingefroren
-- Optional: MCP-Server mit denselben Lesefunktionen
+- MCP-Server (seit M1 vorhanden) um Suche, Entscheidungen und Kontextpakete erweitern
 
 **DoD:** Ein Dienstkonto mit Lese-Scopes kann suchen und Kontextpakete abrufen; ohne Scope wird abgelehnt; jeder Abruf steht im Protokoll. Ein geschriebener Fakt erscheint als Kante im Graph.
 
@@ -362,8 +377,9 @@ Zweite Domäne (z. B. Superstore oder ein SaaS-Datensatz) mit neuen Loadern, Mar
 
 ## 13. Betrieb auf dem VPS
 
-- Eigenes Compose-Projekt: `postgres` (mit pgvector; Warehouse, Wissen und Dagster-Metadaten in getrennten Datenbanken bzw. Schemas), `dagster-webserver`, `dagster-daemon`, Code-Location, `api`, `frontend`, `mock-marketing-api`, `ollama`
-- Anschluss an den bestehenden Reverse Proxy über eine neue Route; Keycloak mit eigenem Realm
+- Eigenes Compose-Projekt: `postgres` (mit pgvector; Warehouse, Wissen, Dagster-Metadaten und Keycloak in getrennten Datenbanken bzw. Schemas), `dagster-webserver`, `dagster-daemon` (Läufe), `api`, `mcp`, `frontend`, `keycloak`, `mock-marketing-api`, später `ollama`
+- Anschluss an den bestehenden Reverse Proxy über zwei neue Routen (`business`, `auth`); Keycloak läuft im BI-Stack, die Admin-Konsole ist von außen gesperrt
+- Betriebsdetails: [docs/deployment.md](docs/deployment.md)
 - Dagster-Oberfläche nicht öffentlich, nur hinter Login oder per SSH-Tunnel
 - **Ressourcen:** BI-Stack ohne Modell grob 2–3 GB RAM. Ein lokales 7–8B-Modell in 4-Bit-Quantisierung braucht zusätzlich etwa 5–6 GB, plus Embedding-Modell. Ohne GPU ist die Extraktion langsam; sie läuft deshalb als Nachtlauf. Vor K1 messen; bei Engpass kleineres Modell oder Demo-Korpus als `public` mit externem Modell
 - Backups: tägliches `pg_dump` von `ops`, `marts` und `knowledge`; `raw` ist reproduzierbar, der Korpus liegt im Repo
@@ -379,13 +395,13 @@ Zweite Domäne (z. B. Superstore oder ein SaaS-Datensatz) mit neuen Loadern, Mar
 ## 15. Pre-Start-Checkliste
 
 - [ ] Freie Ressourcen auf dem VPS messen, CPU-Tempo eines lokalen Modells testen
-- [ ] Route im bestehenden Reverse Proxy, eigener Keycloak-Realm
-- [ ] Subdomain und TLS-Zertifikat
+- [x] Route im bestehenden Reverse Proxy; Keycloak im BI-Stack (auf dem VPS gab es keins)
+- [x] Subdomains `business` und `auth`, TLS über den bestehenden Caddy
 - [ ] Olist-Lizenz gegenlesen
 - [ ] SMTP-Anbieter wählen, Absenderdomain mit SPF/DKIM
 - [ ] API-Schlüssel für den externen LLM-Provider, Ausgabenlimit setzen
 - [ ] Lokales Extraktions- und Embedding-Modell auswählen
-- [ ] Versionen von Dagster, dbt, `dagster-dbt` und pgvector pinnen
+- [x] Versionen von Dagster, dbt, `dagster-dbt` und pgvector pinnen
 
 ## 16. Risiken
 
@@ -402,9 +418,9 @@ Zweite Domäne (z. B. Superstore oder ein SaaS-Datensatz) mit neuen Loadern, Mar
 
 ## 17. Offene Punkte
 
-1. Keycloak: eigener Realm im bestehenden Keycloak (eine gemeinsame Abhängigkeit, kein Eingriff in Hive Mind) oder eine vollständig getrennte Anmeldung
+1. ~~Keycloak: eigener Realm oder getrennte Anmeldung~~ Entschieden (2.1): eigenes Keycloak im BI-Stack
 2. Lokales Modell und ob die Hardware des VPS dafür reicht
 3. Datenklasse des Demo-Korpus im Standardbetrieb
-4. Subdomain-Schema
+4. ~~Subdomain-Schema~~ Entschieden (2.1): `business`, `auth`
 5. Zweite Domäne für Phase 3
 6. Reihenfolge nach M2: Central-Intelligence-Agent oder zuerst Phase 2 (Empfehlung im Plan des Central-Intelligence-Agent)
