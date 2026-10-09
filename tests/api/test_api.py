@@ -32,12 +32,26 @@ class FakeRepository:
 
     briefing: dict | None = None
 
-    def insights(self, since, types, min_rank, kpi, limit):
+    def insights(self, since, types, min_rank, kpi, limit, classes=None):
         self.calls.append(("insights", since, types, min_rank, kpi, limit))
         return [{"insight_id": "1", "type": "anomaly", "details": None}]
 
-    def latest_briefing(self):
+    def latest_briefing(self, classes=None):
         return self.briefing
+
+    def llm_usage(self, since):
+        return [
+            {
+                "day": since,
+                "purpose": "briefing",
+                "provider": "mistral",
+                "model": "m",
+                "calls": 2,
+                "tokens_in": 1000,
+                "tokens_out": 200,
+                "cost_eur": 0.0,
+            }
+        ]
 
 
 @pytest.fixture

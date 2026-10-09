@@ -1,7 +1,8 @@
-"""BIS API v1: KPI registry (semantic layer), KPI series and comparisons, health."""
+"""BIS API v1: KPI registry (semantic layer), KPI series and comparisons, insights, guest access,
+admin views, health."""
 
 from collections.abc import Iterator
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from functools import lru_cache
 from typing import Annotated, Literal
 
@@ -10,16 +11,28 @@ from fastapi import Depends, FastAPI, HTTPException, Query
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
-from api.auth import require_scope
+from api import guest
+from api.auth import Principal, require_scope
 from api.periods import default_window, normalise, previous_window
 from api.repository import Grain, Repository, WarehouseRepository
 from api.settings import ConfigError, api_dsn
 from registry import Kpi, load_registry
 
 app = FastAPI(title="Business-Intelligence-System API", version="1.0")
+app.include_router(guest.router)
 
-# Scopes per endpoint (plan section 10); /health stays open for probes.
-READ_KPI = Depends(require_scope("read:kpi"))
+# Scopes per endpoint (plan section 10); /health and the guest entry stay open.
+# One dependency object per scope, so FastAPI verifies the token once per request.
+_read_kpi = require_scope("read:kpi")
+READ_KPI = Depends(_read_kpi)
+ReaderDep = Annotated[Principal, Depends(_read_kpi)]
+ADMIN_AGENTS = Depends(require_scope("admin:agents"))
+ALL_CLASSES = ["public", "internal", "confidential"]
+
+
+def visible_classes(principal: Principal) -> list[str]:
+    """Guests are external recipients like the MCP server: public data only (plan section 8)."""
+    return ["public"] if principal.guest else ALL_CLASSES
 
 
 # --- dependencies -------------------------------------------------------------------------
@@ -30,8 +43,9 @@ def registry() -> dict[str, Kpi]:
     return {kpi.key: kpi for kpi in load_registry()}
 
 
-def get_registry() -> dict[str, Kpi]:
-    return registry()
+def get_registry(principal: ReaderDep) -> dict[str, Kpi]:
+    classes = visible_classes(principal)
+    return {key: kpi for key, kpi in registry().items() if kpi.data_class in classes}
 
 
 def get_repository() -> Iterator[Repository]:
@@ -255,6 +269,7 @@ def _public(payload: dict) -> dict:
 @app.get("/api/v1/insights", dependencies=[READ_KPI])
 def list_insights(
     repo: RepoDep,
+    principal: ReaderDep,
     since: date | None = None,
     type: Annotated[list[InsightType] | None, Query()] = None,  # noqa: A002 - public API name
     severity: Literal["info", "warning", "critical"] = "info",
@@ -262,16 +277,50 @@ def list_insights(
     limit: Annotated[int, Query(ge=1, le=500)] = 100,
 ) -> list[dict]:
     """insight.v1 events, newest period first. `severity` is the minimum level."""
-    rows = repo.insights(since, list(type) if type else None, SEVERITY_RANK[severity], kpi, limit)
+    classes = None if not principal.guest else visible_classes(principal)
+    rows = repo.insights(since, list(type) if type else None, SEVERITY_RANK[severity], kpi, limit, classes)
     return [_public(r) for r in rows]
 
 
 @app.get("/api/v1/briefings/latest", dependencies=[READ_KPI])
-def latest_briefing(repo: RepoDep) -> dict:
-    payload = repo.latest_briefing()
+def latest_briefing(repo: RepoDep, principal: ReaderDep) -> dict:
+    payload = repo.latest_briefing(None if not principal.guest else visible_classes(principal))
     if payload is None:
         raise HTTPException(404, "No briefing yet")
     return _public(payload)
+
+
+class MeResponse(BaseModel):
+    subject: str
+    username: str | None
+    guest: bool
+    admin: bool
+    scopes: list[str]
+
+
+@app.get("/api/v1/me", response_model=MeResponse)
+def me(principal: ReaderDep) -> MeResponse:
+    """Who the portal is talking to: guest or signed-in user, and which areas to show."""
+    return MeResponse(
+        subject=principal.subject,
+        username=principal.username,
+        guest=principal.guest,
+        admin=any(s.startswith("admin:") for s in principal.scopes),
+        scopes=sorted(principal.scopes),
+    )
+
+
+@app.get("/api/v1/admin/usage", dependencies=[ADMIN_AGENTS])
+def admin_usage(repo: RepoDep, days: Annotated[int, Query(ge=1, le=365)] = 30) -> dict:
+    """LLM usage of the BI system and guest sessions (in-memory counters of this API process)."""
+    rows = repo.llm_usage(date.today() - timedelta(days=days - 1))
+    return {
+        "days": days,
+        "llm": rows,
+        "total_cost_eur": round(sum(r["cost_eur"] for r in rows), 6),
+        "total_tokens": sum(r["tokens_in"] + r["tokens_out"] for r in rows),
+        "guests": guest.limiter().stats() if guest.settings().enabled else None,
+    }
 
 
 @app.get("/api/v1/health", response_model=HealthResponse)
