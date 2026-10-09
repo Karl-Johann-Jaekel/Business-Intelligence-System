@@ -185,3 +185,22 @@ def test_foreign_host_header_is_rejected(client):
         content=json.dumps({"jsonrpc": "2.0", "id": 1, "method": "tools/list", "params": {}}),
     )
     assert response.status_code == 421
+
+
+# --- rights by token role (A1) ----------------------------------------------------------------
+
+
+def _kpi_keys(client, token: str) -> set[str]:
+    call = _rpc(client, "tools/call", {"name": "list_kpis", "arguments": {}}, token, rid=9).json()["result"]
+    assert call["isError"] is False
+    return {k["key"] for k in call["structuredContent"]["result"]}
+
+
+def test_admin_token_sees_internal_kpis_others_do_not(client):
+    assert "roas" not in _kpi_keys(client, _token())
+    assert "roas" in _kpi_keys(client, _token(scope="openid read:kpi admin:agents"))
+
+
+def test_confidential_never_leaves_through_mcp(client, monkeypatch):
+    monkeypatch.setenv("BIS_MCP_ADMIN_DATA_CLASSES", "public,internal,confidential")
+    assert "confidential" not in mcp_server.allowed_classes()

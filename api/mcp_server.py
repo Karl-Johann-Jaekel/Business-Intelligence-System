@@ -3,7 +3,8 @@ Claude Code) over Streamable HTTP, authorised by Keycloak (realm `bis`).
 
 - Tools reuse the API's logic (same read-only database role, same validation).
 - Claude is an external provider: only data classes in BIS_MCP_DATA_CLASSES (default `public`)
-  leave the system (plan section 8).
+  leave the system (plan section 8). Tokens of the admin (role-gated admin scopes, OTP enforced by
+  Keycloak) get BIS_MCP_ADMIN_DATA_CLASSES instead (default `public,internal`).
 - Tokens must be issued for this server: audience = BIS_MCP_RESOURCE_URL (RFC 8707), scope
   `read:kpi`. The server publishes its protected-resource metadata so clients find Keycloak.
 
@@ -21,6 +22,7 @@ import anyio
 import jwt
 import psycopg
 from fastapi import HTTPException
+from mcp.server.auth.middleware.auth_context import get_access_token
 from mcp.server.auth.provider import AccessToken
 from mcp.server.auth.settings import AuthSettings
 from mcp.server.mcpserver import MCPServer
@@ -43,9 +45,16 @@ Ratios are fractions (0.05 = 5 %), changes of ratios are best reported in percen
 Insights are statistical anomalies, not causes; say so when you explain them."""
 
 
+def is_admin(token: AccessToken | None) -> bool:
+    return token is not None and any(scope.startswith("admin:") for scope in token.scopes)
+
+
 def allowed_classes() -> list[str]:
+    """Data classes the caller of the current request may receive."""
     raw = os.getenv("BIS_MCP_DATA_CLASSES", "public")
-    return [c.strip() for c in raw.split(",") if c.strip()]
+    if is_admin(get_access_token()):
+        raw = os.getenv("BIS_MCP_ADMIN_DATA_CLASSES", "public,internal")
+    return [c.strip() for c in raw.split(",") if c.strip() and c.strip() != "confidential"]
 
 
 def _public_kpis() -> dict[str, Kpi]:

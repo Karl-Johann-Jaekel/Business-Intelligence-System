@@ -1,7 +1,8 @@
 """OIDC bearer-token authentication (Keycloak realm `bis`) and per-endpoint scopes (plan section 10).
 
-The API trusts only tokens that are signed by the realm (JWKS), issued by the configured issuer,
-addressed to the audience `bis-api`, and unexpired. Each endpoint names the scope it needs.
+The API trusts tokens signed by the realm (JWKS) or guest tokens it issued itself (api/guest.py);
+both must name the expected issuer, the audience `bis-api` and be unexpired. Each endpoint names
+the scope it needs.
 With BIS_AUTH_ENABLED=false (unit tests, local tools) every request is anonymous and allowed.
 """
 
@@ -23,6 +24,7 @@ class Principal:
     username: str | None = None
     client: str | None = None
     scopes: frozenset[str] = field(default_factory=frozenset)
+    guest: bool = False
 
 
 ANONYMOUS = Principal(subject="anonymous")
@@ -58,19 +60,40 @@ class TokenVerifier:
         )
 
 
+class IssuerRouter:
+    """Picks the verifier by the (still unverified) issuer; the chosen verifier then checks
+    signature, issuer, audience and expiry. Unknown issuers are rejected."""
+
+    def __init__(self, verifiers: dict[str, object]):
+        self.verifiers = verifiers
+
+    def verify(self, token: str) -> Principal:
+        issuer = jwt.decode(token, options={"verify_signature": False}).get("iss")
+        verifier = self.verifiers.get(issuer)
+        if verifier is None:
+            raise jwt.InvalidIssuerError("unknown issuer")
+        return verifier.verify(token)
+
+
 @lru_cache
-def get_verifier() -> TokenVerifier | None:
+def get_verifier() -> TokenVerifier | IssuerRouter | None:
     """None = authentication disabled."""
     if os.getenv("BIS_AUTH_ENABLED", "false").lower() != "true":
         return None
     issuer = os.getenv("BIS_OIDC_ISSUER")
     if not issuer:
         raise RuntimeError("BIS_AUTH_ENABLED=true requires BIS_OIDC_ISSUER")
-    return TokenVerifier(
+    keycloak = TokenVerifier(
         issuer=issuer,
         audience=os.getenv("BIS_OIDC_AUDIENCE", "bis-api"),
         jwks_url=os.getenv("BIS_OIDC_JWKS_URL", f"{issuer}/protocol/openid-connect/certs"),
     )
+    from api import guest
+
+    if not guest.settings().enabled:
+        return keycloak
+    s = guest.settings()
+    return IssuerRouter({issuer: keycloak, s.issuer: guest.GuestTokenVerifier(guest.keys(), s.issuer)})
 
 
 def _unauthorized(detail: str, error: str = "invalid_token") -> HTTPException:

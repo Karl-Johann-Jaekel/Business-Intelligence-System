@@ -49,6 +49,12 @@ services:
       BIS_OIDC_ISSUER: http://127.0.0.1:${BIS_KEYCLOAK_PORT:-8180}/realms/bis
       BIS_OIDC_JWKS_URL: http://keycloak:8080/realms/bis/protocol/openid-connect/certs
       BIS_OIDC_AUDIENCE: bis-api
+      # Guest access (plan section 9); locally with Cloudflare's always-pass test keys.
+      BIS_GUEST_ENABLED: ${BIS_GUEST_ENABLED:-true}
+      BIS_GUEST_TOKEN_SECRET: ${BIS_GUEST_TOKEN_SECRET:?Set BIS_GUEST_TOKEN_SECRET in infra/.env (bis setup creates it)}
+      BIS_TURNSTILE_SITE_KEY: ${BIS_TURNSTILE_SITE_KEY:-1x00000000000000000000AA}
+      BIS_TURNSTILE_SECRET_KEY: ${BIS_TURNSTILE_SECRET_KEY:-1x0000000000000000000000000000000AA}
+      BIS_GUEST_ALLOW_TEST_KEYS: "true"
     ports:
       - "127.0.0.1:${BIS_API_PORT:-8102}:8000"
     depends_on:

@@ -74,7 +74,9 @@ class Repository(Protocol):
         classes: list[str] | None = None,
     ) -> list[dict]: ...
 
-    def latest_briefing(self) -> dict | None: ...
+    def latest_briefing(self, classes: list[str] | None = None) -> dict | None: ...
+
+    def llm_usage(self, since: date) -> list[dict]: ...
 
 
 def _f(value) -> float | None:
@@ -185,11 +187,27 @@ class WarehouseRepository:
         ).fetchall()
         return [row[0] for row in rows]
 
-    def latest_briefing(self) -> dict | None:
+    def latest_briefing(self, classes: list[str] | None = None) -> dict | None:
         row = self.conn.execute(
             """
             SELECT payload FROM ops.events WHERE event_type = 'insight' AND type = 'briefing'
+              AND (%(classes)s::text[] IS NULL OR data_class = ANY(%(classes)s))
             ORDER BY period_end DESC, created_at DESC LIMIT 1
-            """
+            """,
+            {"classes": classes},
         ).fetchone()
         return row[0] if row else None
+
+    def llm_usage(self, since: date) -> list[dict]:
+        """Tokens and cost per day, purpose and model (admin cost view)."""
+        rows = self.conn.execute(
+            """
+            SELECT created_at::date AS day, purpose, provider, model, count(*) AS calls,
+                   sum(tokens_in) AS tokens_in, sum(tokens_out) AS tokens_out, sum(cost_eur) AS cost_eur
+            FROM ops.llm_usage WHERE created_at >= %(since)s
+            GROUP BY 1, 2, 3, 4 ORDER BY 1 DESC, 2, 3, 4
+            """,
+            {"since": since},
+        ).fetchall()
+        keys = ("day", "purpose", "provider", "model", "calls", "tokens_in", "tokens_out", "cost_eur")
+        return [dict(zip(keys, row, strict=True)) | {"cost_eur": float(row[7])} for row in rows]

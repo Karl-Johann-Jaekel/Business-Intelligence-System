@@ -152,10 +152,13 @@ nicht aber das Zustellprotokoll.
 |---|---|
 | Realm | `bis`, Datei [infra/keycloak/realm-bis.json](../infra/keycloak/realm-bis.json) (Clients) |
 | Clients | `bis-frontend` (public, Authorization Code + PKCE, Audience-Mapper auf `bis-api`), `bis-api` (bearer-only) |
-| Scopes | `read:kpi`, `read:knowledge`, `write:facts`, `admin:review` (Plan §9/§10); Dashboard: `read:kpi` |
+| Scopes | `read:kpi`, `read:knowledge`, `write:facts`, `admin:simulation`, `admin:agents`, `admin:actions`, `admin:review` (Plan §9/§10) |
+| Admin | Realm-Rolle `bis-admin`. Admin-Scopes sind Client-Scopes mit Rollen-Mapping: nur Nutzer mit der Rolle bekommen sie, über jeden Client |
+| MFA | Realm-Browser-Flow `browser-bis`: der optionale 2FA-Schritt ist aus, stattdessen verlangt ein Unterflow mit Bedingung „Rolle `bis-admin`“ immer ein OTP; fehlt es, richtet Keycloak es beim Login ein. Kein Client und kein SSO-Cookie umgeht das |
+| Admin-Nutzer | `BIS_ADMIN_USER`, Startpasswort `BIS_ADMIN_INITIAL_PASSWORD` (temporär); beim ersten Login neues Passwort und OTP. Wird nie zurückgesetzt |
 | Einrichtung | `orchestration/keycloak_setup.py` über die Admin-API, idempotent, aus `bis setup` |
 | API | `api/auth.py`: Signatur (JWKS), Issuer, Audience, Ablauf, Scope pro Endpoint; 401/403 mit `WWW-Authenticate` |
-| Frontend | `oidc-client-ts`, Token im `sessionStorage`, bei 401 neuer Login |
+| Frontend | `oidc-client-ts`, Token im `sessionStorage`, bei 401 neuer Login; ohne Sitzung zeigt das Portal die Startseite |
 
 Lokal läuft Keycloak im Dev-Modus mit Dateispeicher. Auf dem VPS bekommt das bestehende
 Keycloak den Realm `bis` (offener Punkt 1 im Plan), die Redirect-URIs werden angepasst.
@@ -172,3 +175,23 @@ Keycloak den Realm `bis` (offener Punkt 1 im Plan), die Redirect-URIs werden ang
 | Login | Client `bis-claude` (vertraulich, PKCE S256, Callback von claude.ai), Scope `read:kpi`, Audience = MCP-Ressource. MCP-Token gelten nicht für die REST-API und umgekehrt |
 | Datenklassen | nur `BIS_MCP_DATA_CLASSES` (Standard `public`); interne KPIs, Insights und Briefings bleiben im System |
 | Schutz | DNS-Rebinding-Schutz über `BIS_MCP_ALLOWED_HOSTS`; keine offene dynamische Client-Registrierung |
+
+## Gastzugang (A1)
+
+`api/guest.py`, Plan §9.
+
+| Teil | Umsetzung |
+|---|---|
+| Einstieg | Startseite → „Als Gast fortfahren“ → Cloudflare Turnstile im Browser → `POST /api/v1/guest/session` prüft das Turnstile-Token serverseitig (siteverify) |
+| Token | EdDSA, 2 h, Issuer `bis-guest`, Audience `bis-api` und `cia-api`, Scopes `read:kpi read:knowledge ask:guest`. Schlüssel aus `BIS_GUEST_TOKEN_SECRET` abgeleitet; öffentlich unter `/api/v1/guest/jwks` für den CIA |
+| Prüfung | `api/auth.py` wählt den Prüfer nach Issuer (Keycloak oder Gast); ein Gast-Token trägt nie mehr als die Gast-Scopes, auch wenn es anderes behauptet |
+| Datenklassen | Gäste sind externe Empfänger: nur `public` (KPIs, Insights, Briefing) |
+| Missbrauch | Rate-Limit pro Client (gehashte IP, 10/h) und global (1000/Tag), nur im Speicher; keine IP wird gespeichert |
+| Schutz vor Fehlkonfiguration | Ohne Signatur-Secret oder Turnstile-Secret bleibt der Gastmodus aus; Cloudflares Test-Secrets (lassen alles durch) nur mit `BIS_GUEST_ALLOW_TEST_KEYS=true` (lokal) |
+
+## LLM-Provider und Kosten (A1)
+
+- `llm/provider.py`: `MistralProvider` (JSON-Schema-Ausgabe, verschachtelte Modelle aufgelöst, Wiederholung bei 429/5xx mit `Retry-After`), freigegeben nur für `BIS_MISTRAL_DATA_CLASSES` (Standard `public`: die kostenlose Stufe kann Eingaben zum Training nutzen).
+- Jeder Aufruf zählt Tokens; `llm/usage.py` schreibt sie nach `ops.llm_usage` (Preise optional über `BIS_LLM_PRICE_<PROVIDER>_IN/OUT`, EUR pro Mio. Tokens).
+- `GET /api/v1/admin/usage` (Scope `admin:agents`) zeigt Kosten, Tokens und Gastzugänge im Admin-Bereich des Portals.
+- MCP: Admin-Tokens bekommen `BIS_MCP_ADMIN_DATA_CLASSES` (Standard `public,internal`), `confidential` nie.

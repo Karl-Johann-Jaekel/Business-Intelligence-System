@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import type { Health, Kpi, Window } from './api'
+import type { Health, Kpi, Me, Window } from './api'
+import { AdminPage } from './components/AdminPage'
 import { BriefingPanel } from './components/BriefingPanel'
 import { FilterBar } from './components/FilterBar'
 import { InsightsPanel } from './components/InsightsPanel'
@@ -7,7 +8,7 @@ import { KpiCard } from './components/KpiCard'
 import { KpiDetail } from './components/KpiDetail'
 import { PRESETS, presetWindow, readUrlState, writeUrlState } from './dates'
 import { formatDate } from './format'
-import { authEnabled, logout, userName } from './auth'
+import { authEnabled, currentSession, logout, userName } from './auth'
 import { useApi } from './useApi'
 
 const HEALTH_LABEL: Record<Health['status'], { text: string; color: string }> = {
@@ -16,9 +17,20 @@ const HEALTH_LABEL: Record<Health['status'], { text: string; color: string }> = 
   down: { text: 'Warehouse nicht erreichbar', color: 'var(--status-critical)' },
 }
 
+type View = 'dashboard' | 'admin'
+
+function initialView(): View {
+  return new URLSearchParams(window.location.search).get('view') === 'admin' ? 'admin' : 'dashboard'
+}
+
 export default function App() {
   const registry = useApi<Kpi[]>('/kpis')
   const health = useApi<Health>('/health')
+  const me = useApi<Me>('/me')
+  const isAdmin = me.data?.admin ?? false
+  const guest = currentSession() === 'guest'
+  const [view, setView] = useState<View>(initialView)
+
   const simDate = health.data?.sim_date ?? null
 
   // Filters live in the URL so a view can be shared or bookmarked.
@@ -30,7 +42,13 @@ export default function App() {
 
   useEffect(() => {
     writeUrlState({ presetId, custom, kpi: selectedKey, dim: dimension })
-  }, [presetId, custom, selectedKey, dimension])
+    // The view is not part of the filter state; add it after the filters were written.
+    if (view === 'admin') {
+      const url = new URL(globalThis.location.href)
+      url.searchParams.set('view', 'admin')
+      globalThis.history.replaceState(null, '', url)
+    }
+  }, [presetId, custom, selectedKey, dimension, view])
 
   const window = useMemo<Window | null>(() => {
     if (custom) return custom
@@ -70,21 +88,33 @@ export default function App() {
             {simDate && <span className="muted">· Simulationsdatum {formatDate(simDate)}</span>}
           </span>
         )}
+        {isAdmin && (
+          <nav className="segmented" aria-label="Bereich">
+            <button type="button" aria-pressed={view === 'dashboard'} onClick={() => setView('dashboard')}>
+              Dashboard
+            </button>
+            <button type="button" aria-pressed={view === 'admin'} onClick={() => setView('admin')}>
+              Admin
+            </button>
+          </nav>
+        )}
         {authEnabled && (
           <span className="user">
-            {userName()}{' '}
+            {guest && <span className="badge">Gastzugang · nur lesen</span>} {userName()}{' '}
             <button type="button" className="link-button" onClick={() => void logout()}>
-              Abmelden
+              {guest ? 'Beenden' : 'Abmelden'}
             </button>
           </span>
         )}
       </header>
 
+      {view === 'admin' && isAdmin && <AdminPage />}
+
       {registry.error && <p className="error">KPI-Registry nicht ladbar: {registry.error}</p>}
       {health.error && !registry.error && <p className="error">Status nicht ladbar: {health.error}</p>}
       {(registry.loading || health.loading) && !window && <p className="muted">Lade …</p>}
 
-      {window && simDate && selected && (
+      {view === 'dashboard' && window && simDate && selected && (
         <>
           <BriefingPanel />
           <FilterBar

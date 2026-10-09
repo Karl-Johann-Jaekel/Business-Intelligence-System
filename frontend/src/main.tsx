@@ -1,21 +1,19 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
-import App from './App.tsx'
 import { initAuth } from './auth'
+import { Root } from './components/Root'
 
 const root = createRoot(document.getElementById('root')!)
 
-// Render only once authenticated; otherwise the browser is on its way to the login page.
 initAuth()
-  .then((ready) => {
-    if (ready)
-      root.render(
-        <StrictMode>
-          <App />
-        </StrictMode>,
-      )
-  })
+  .then((session) =>
+    root.render(
+      <StrictMode>
+        <Root initial={session} />
+      </StrictMode>,
+    ),
+  )
   .catch((err: unknown) => {
     const p = document.createElement('p')
     p.className = 'error app'

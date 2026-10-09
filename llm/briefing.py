@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field
 
 from events.insight import Evidence, Insight, Period, save
 from llm import context as ctx
+from llm import usage
 from llm.guardrail import unsupported_numbers
 from llm.provider import LLMError, LLMProvider
 from registry import load_registry
@@ -80,6 +81,16 @@ def generate(provider: LLMProvider, context: dict) -> BriefingResult:
     return BriefingResult(None, MAX_ATTEMPTS, rejected)
 
 
+def _record_usage(conn: psycopg.Connection | None, provider: LLMProvider, sim_date: date) -> None:
+    """Store the tokens of all attempts (also rejected ones: they cost the same)."""
+    calls = getattr(provider, "calls", [])
+    if conn is None or not calls:
+        return
+    usage.record(conn, "briefing", calls, sim_date)
+    conn.commit()
+    calls.clear()
+
+
 def run(conn: psycopg.Connection, provider: LLMProvider, sim_date: date) -> dict:
     """Create and store the briefing for sim_date. Returns metadata for the pipeline."""
     kpis = load_registry()
@@ -88,7 +99,9 @@ def run(conn: psycopg.Connection, provider: LLMProvider, sim_date: date) -> dict
         result = generate(provider, context)
     except LLMError as exc:
         log.warning("No briefing for %s: %s", sim_date, exc)
+        _record_usage(conn, provider, sim_date)
         return {"status": "skipped", "reason": str(exc)}
+    _record_usage(conn, provider, sim_date)
     if result.briefing is None:
         return {"status": "rejected", "attempts": result.attempts, "rejected": result.rejected}
 

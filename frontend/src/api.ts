@@ -1,6 +1,6 @@
 // Typed client for the BIS API v1. Shapes mirror api/main.py response models.
 
-import { accessToken, authEnabled, login } from './auth'
+import { accessToken, authEnabled, sessionExpired } from './auth'
 
 export type Grain = 'day' | 'month'
 export type Unit = 'BRL' | 'count' | 'ratio' | 'multiple' | 'days' | 'score'
@@ -88,16 +88,48 @@ export function buildUrl(path: string, params: Params = {}): string {
 export async function getUrl<T>(url: string, signal?: AbortSignal): Promise<T> {
   const token = accessToken()
   const response = await fetch(url, { signal, headers: token ? { Authorization: `Bearer ${token}` } : {} })
-  if (response.status === 401 && authEnabled) {
-    // Session expired or revoked: log in again and come back to the same view.
-    void login()
-  }
+  if (response.status === 401 && authEnabled) sessionExpired()
   const body = await response.json().catch(() => ({}))
   if (!response.ok) {
     const detail = typeof body.detail === 'string' ? body.detail : response.statusText
     throw new Error(`${response.status}: ${detail}`)
   }
   return body as T
+}
+
+/** GET /me: who the portal talks to. */
+export interface Me {
+  subject: string
+  username: string | null
+  guest: boolean
+  admin: boolean
+  scopes: string[]
+}
+
+/** GET /guest/config (open): whether guest mode is on and the public Turnstile site key. */
+export interface GuestConfig {
+  enabled: boolean
+  site_key: string
+}
+
+export interface UsageRow {
+  day: string
+  purpose: string
+  provider: string
+  model: string
+  calls: number
+  tokens_in: number
+  tokens_out: number
+  cost_eur: number
+}
+
+/** GET /admin/usage (admin only). */
+export interface Usage {
+  days: number
+  llm: UsageRow[]
+  total_cost_eur: number
+  total_tokens: number
+  guests: { sessions_last_24h: number; sessions_last_hour: number } | null
 }
 
 export type Severity = 'info' | 'warning' | 'critical'
