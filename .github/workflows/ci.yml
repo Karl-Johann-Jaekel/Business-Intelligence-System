@@ -69,6 +69,8 @@ jobs:
           docker run --rm bis-api pytest -q -p no:cacheprovider tests/api
       - name: Frontend image
         run: docker build -t bis-frontend frontend
+      - name: Pipeline image (Dagster, dbt, bis CLI)
+        run: docker build -f infra/app.Dockerfile -t bis-app .
       - name: Mock marketing API image
         run: docker build -t bis-mock-marketing-api ingestion/mock_marketing_api
       - name: Contracts are valid JSON
